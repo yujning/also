@@ -137,8 +137,6 @@ public:
         {
           for ( auto const& dag : *structures )
           {
-            auto [nodes_added, level] =
-                evaluate_entry( n, db.get_node( dag.root ), leaves );
 
             /* discard if dag.root and n are the same */
             if ( ntk.node_to_index( n ) == db.value( db.get_node( dag.root ) ) >> 1 )
@@ -217,7 +215,6 @@ public:
       for (auto& cut : cuts.cuts(ntk.node_to_index(n))) {
         if (cut->size() < ps.min_cand_cut_size) continue;
         const auto tt_cut = cuts.truth_table(*cut);
-        const kitty::static_truth_table<4> fe = kitty::extend_to<4>(tt_cut);
         std::vector<signal> children;
         for (auto l : *cut) {
           children.push_back(ntk.make_signal(ntk.index_to_node(l)));
@@ -666,9 +663,9 @@ private:
   Ntk& ntk;
   RewritingFn&& rewriting_fn;
   RewritingFn2&& rewriting_fn2;
+  Library&& library;
   RefactoringFn&& refactoring_fn;
   RefactoringFn2&& refactoring_fn2;
-  Library&& library;
 
   xmg_choice_compute_params const& ps;
   xmg_choice_compute_stats& st;

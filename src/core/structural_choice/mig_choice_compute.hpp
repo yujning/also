@@ -135,8 +135,6 @@ public:
         {
           for ( auto const& dag : *structures )
           {
-            auto [nodes_added, level] =
-                evaluate_entry( n, db.get_node( dag.root ), leaves );
 
             /* discard if dag.root and n are the same */
             if ( ntk.node_to_index( n ) == db.value( db.get_node( dag.root ) ) >> 1 )
@@ -247,8 +245,6 @@ public:
         }
         {
           for (auto const& dag : *structures) {
-            auto [nodes_added, level] =
-                evaluate_entry(n, db.get_node(dag.root), leaves);
 
             /* discard if dag.root and n are the same */
             if (ntk.node_to_index(n) == db.value(db.get_node(dag.root)) >> 1)
@@ -621,9 +617,9 @@ private:
 private:
   Ntk& ntk;
   RewritingFn&& rewriting_fn;
+  Library&& library;
   RefactoringFn&& refactoring_fn;
   RefactoringFn2&& refactoring_fn2;
-  Library&& library;
 
   mig_choice_compute_params const& ps;
   mig_choice_compute_stats& st;

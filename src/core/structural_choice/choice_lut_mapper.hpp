@@ -349,7 +349,7 @@ public:
     }
     else /* NONE */
     {
-      ipos == _pend;
+      // ipos == _pend;
     }
 
     /* too many cuts, we need to remove one */
