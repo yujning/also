@@ -32,14 +32,21 @@ inline void write_string_to_file( const std::string& path, const std::string& co
  *───────────────────────────────────────────────*/
 inline std::string run_stp_dsd( const std::string& tt_hex )
 {
-    std::string bench_path = "/tmp/stp_dsd_out.bench";
+        const char* env_bench_path = std::getenv( "BENCH_FILE_PATH" );
+    std::filesystem::path bench_path = env_bench_path != nullptr ? env_bench_path
+                                                                 : "/tmp/stp_dsd_out.bench";
+
+    const char* env_stp_bin = std::getenv( "STP_BIN_PATH" );
+    std::string stp_bin = env_stp_bin != nullptr ? env_stp_bin
+                                                 : "/home/yjn/stp10_29/stp/build/bin/stp";
 
     std::string cmd =
-        "/home/yjn/stp10_29/stp/build/bin/stp "
-        "dsd -f " + tt_hex +
-        " ; "
-        "/home/yjn/stp10_29/stp/build/bin/stp "
-        "write_bench " + bench_path;
+        stp_bin + " "
+    + "dsd -f " + tt_hex
+    + " ; "
+    + stp_bin + " "
+    + "write_bench " + bench_path.string();
+
 
     int ret = std::system( cmd.c_str() );
     if ( ret != 0 )
