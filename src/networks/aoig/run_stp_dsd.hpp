@@ -32,7 +32,7 @@ inline void write_string_to_file( const std::string& path, const std::string& co
  *───────────────────────────────────────────────*/
 inline std::string run_stp_dsd( const std::string& tt_hex )
 {
-        const char* env_bench_path = std::getenv( "BENCH_FILE_PATH" );
+    const char* env_bench_path = std::getenv( "BENCH_FILE_PATH" );
     std::filesystem::path bench_path = env_bench_path != nullptr ? env_bench_path
                                                                  : "/tmp/stp_dsd_out.bench";
 
@@ -40,13 +40,17 @@ inline std::string run_stp_dsd( const std::string& tt_hex )
     std::string stp_bin = env_stp_bin != nullptr ? env_stp_bin
                                                  : "/home/yjn/stp10_29/stp/build/bin/stp";
 
-    std::string cmd =
-        stp_bin + " "
-    + "dsd -f " + tt_hex
-    + " ; "
-    + stp_bin + " "
-    + "write_bench " + bench_path.string();
+    /* 生成临时命令脚本 */
+    std::filesystem::path cmd_path = "/tmp/stp_input_cmds.txt";
+    {
+        std::ofstream ofs( cmd_path );
+        ofs << "dsd -f " << tt_hex << "\n";
+        ofs << "write_bench " << bench_path.string() << "\n";
+        ofs << "quit\n";   // 保险退出
+    }
 
+    /* 调用你的交互式 stp：通过 stdin 输入命令脚本 */
+    std::string cmd = stp_bin + " < " + cmd_path.string();
 
     int ret = std::system( cmd.c_str() );
     if ( ret != 0 )
@@ -63,6 +67,7 @@ inline std::string run_stp_dsd( const std::string& tt_hex )
 
     return bench_path;
 }
+
 
 /*───────────────────────────────────────────────*
  * 顶层：运行 STP → bench → klut → xag → merge
