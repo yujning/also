@@ -37,6 +37,7 @@ namespace alice
         add_flag( "--mig, -m",  "LUT mapping for MIG" );
         add_flag( "--opt_img, -o",  "Using optimal IMG size for 3-input function as the cost function" );
         add_flag( "--opt_xmg, -p",  "Using optimal XMG size/depth for 4-input function as the cost function" );
+        
       }
 
     protected:

@@ -6,6 +6,7 @@
 #include <mockturtle/mockturtle.hpp>
 #include <kitty/kitty.hpp>
 
+
 namespace mockturtle
 {
 	struct aoig_storage_data

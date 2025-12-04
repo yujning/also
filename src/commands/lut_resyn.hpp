@@ -31,6 +31,8 @@
 #include "../networks/img/img_all.hpp"
 #include "../core/misc.hpp"
 #include "../core/direct_mapping.hpp"
+#include "../networks/aoig/stp_dec.hpp"
+#include "../networks/aoig/run_stp_dsd.hpp"
 
 namespace alice
 {
@@ -52,6 +54,7 @@ namespace alice
         add_flag( "--xag, -g",  "using xag as target logic network" );
         add_flag( "--new_entry, -n", "adds new store entry" );
         add_flag( "--enable_direct_mapping, -e", "enable aig to xmg by direct mapping for comparison" );
+        add_flag("--stp_dsd, -d","use dsd") ;
       }
 
       rules validity_rules() const
@@ -213,6 +216,39 @@ namespace alice
             store<xag_network>().current() = xag;
           }
         }
+
+        else if( is_set("stp_dsd") )
+        {
+          xag_network xag;
+          auto opt_xags = also::load_xag_string_db( xag );
+          if( cut_size <= 4 )
+          {
+            xag_npn_lut_resynthesis resyn;
+            xag = node_resynthesis<xag_network>( klut, resyn );
+          }
+          else{
+              auto resyn = [&]( auto& ntk_dest,
+                  auto const& tt,
+                  auto begin,
+                  auto end )
+{
+    std::vector<mockturtle::xag_network::signal> children;
+    for (auto it = begin; it != end; ++it)
+        children.push_back(*it);
+
+    return also::stp_dec(ntk_dest, tt, children, opt_xags);
+};
+
+
+          xag_network xag = node_resynthesis<xag_network>( klut, resyn );
+          }
+          if( is_set("new_entry") )
+          {
+            store<xag_network>().extend();
+            store<xag_network>().current() = xag;
+          }
+        }
+
         else
         {
           mig_npn_resynthesis resyn;
