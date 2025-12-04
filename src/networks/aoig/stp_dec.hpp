@@ -20,6 +20,7 @@
 #include <mockturtle/views/depth_view.hpp>
 #include <kitty/constructors.hpp>
 
+
 namespace also {
 
 /*─────────────────────────────────────────────────────────*
@@ -94,6 +95,7 @@ namespace also {
             auto sig = stp_dsd( _ntk, remainder, children );
             if ( sig != mockturtle::xag_network::signal{} )
             {
+                std::cout << "STP 顶层分解成功！" << std::endl;
                 return sig; // STP 成功，直接返回
             }
         }
@@ -115,6 +117,8 @@ namespace also {
 
             switch (res)
             {
+            case kitty::bottom_decomposition::none:
+                break;
             case kitty::bottom_decomposition::and_:
                 copy[sup[i]] = _ntk.create_and(copy[sup[i]], copy[sup[j]]); break;
             case kitty::bottom_decomposition::or_:
@@ -158,7 +162,7 @@ namespace also {
         kitty::dynamic_truth_table const& remainder,
         std::vector<mockturtle::xag_network::signal> const& children )
     {
-        auto sup = get_supports(remainder);
+        auto sup = get_func_supports( remainder );
         std::vector<mockturtle::xag_network::signal> small_pis;
         for (auto i : sup)
             small_pis.push_back(children[i]);
@@ -187,11 +191,117 @@ namespace also {
             if ((phase >> perm[i]) & 1)
                 pis_perm[i] = !pis_perm[i];
 
-        auto res = create_xag_from_str(_ntk, expr, pis_perm)
+         auto res = create_xag_from_str( it->second, pis_perm );
 
 
         return ((phase >> support.size()) & 1) ? !res : res;
     }
+
+          xag_network::signal create_xag_from_str( const std::string& str, const std::vector<xag_network::signal>& pis_perm )
+      {
+        std::stack<int> polar;
+        std::stack<xag_network::signal> inputs;
+
+        for ( auto i = 0ul; i < str.size(); i++ )
+        {
+          // operators polarity
+          if ( str[i] == '[' || str[i] == '(' || str[i] == '{' )
+          {
+            polar.push( (i > 0 && str[i - 1] == '!') ? 1 : 0 );
+          }
+
+          //input signals
+          if ( str[i] >= 'a' && str[i] <= 'd' )
+          {
+            inputs.push( pis_perm[str[i] - 'a'] );
+
+            polar.push( ( i > 0 && str[i - 1] == '!' ) ? 1 : 0 );
+          }
+
+          //create signals
+          if ( str[i] == ']' )
+          {
+            assert( inputs.size() >= 2u );
+            auto x1 = inputs.top();
+            inputs.pop();
+            auto x2 = inputs.top();
+            inputs.pop();
+
+            assert( polar.size() >= 3u );
+            auto p1 = polar.top();
+            polar.pop();
+            auto p2 = polar.top();
+            polar.pop();
+
+            auto p3 = polar.top();
+            polar.pop();
+
+            inputs.push( _ntk.create_xor( x1 ^ p1, x2 ^ p2 ) ^ p3 );
+            polar.push( 0 );
+          }
+
+          if ( str[i] == ')' )
+          {
+            assert( inputs.size() >= 2u );
+            auto x1 = inputs.top();
+            inputs.pop();
+            auto x2 = inputs.top();
+            inputs.pop();
+
+            assert( polar.size() >= 3u );
+            auto p1 = polar.top();
+            polar.pop();
+            auto p2 = polar.top();
+            polar.pop();
+
+            auto p3 = polar.top();
+            polar.pop();
+
+            inputs.push( _ntk.create_and( x1 ^ p1, x2 ^ p2 ) ^ p3 );
+            polar.push( 0 );
+          }
+
+          if ( str[i] == '}' )
+          {
+            assert( inputs.size() >= 2u );
+            auto x1 = inputs.top();
+            inputs.pop();
+            auto x2 = inputs.top();
+            inputs.pop();
+
+            assert( polar.size() >= 3u );
+            auto p1 = polar.top();
+            polar.pop();
+            auto p2 = polar.top();
+            polar.pop();
+
+            auto p3 = polar.top();
+            polar.pop();
+
+            inputs.push( _ntk.create_or( x1 ^ p1, x2 ^ p2 ) ^ p3 );
+            polar.push( 0 );
+          }
+        }
+
+        assert( !polar.empty() );
+        auto po = polar.top();
+        polar.pop();
+        return inputs.top() ^ po;
+      }
+      
+          /**
+           * @brief 执行STP分解算法的主入口函数
+           * 
+           * 该函数是STP（Sum-of-Products）分解算法的顶层调用接口，
+           * 通过调用内部decompose方法实现逻辑函数的分解。
+           * 
+           * @return xag_network::signal 分解后生成的XAG网络信号
+           */
+          xag_network::signal run()
+      {
+        return decompose( _func, pis );
+      }
+
 
 private:
     mockturtle::xag_network& _ntk;

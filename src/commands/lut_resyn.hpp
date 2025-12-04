@@ -219,29 +219,34 @@ namespace alice
 
         else if( is_set("stp_dsd") )
         {
+          std::cout << "STP DSD" << std::endl;
           xag_network xag;
           auto opt_xags = also::load_xag_string_db( xag );
-          if( cut_size <= 4 )
-          {
-            xag_npn_lut_resynthesis resyn;
-            xag = node_resynthesis<xag_network>( klut, resyn );
-          }
-          else{
+          // if( cut_size <= 4 )
+          // {
+          //   std::cout<<"cut<4"<<std::endl;
+          //   xag_npn_lut_resynthesis resyn;
+          //   xag = node_resynthesis<xag_network>( klut, resyn );
+          // }
+          // else{
+            std::cout<<"cut>4"<<std::endl;
+              
               auto resyn = [&]( auto& ntk_dest,
                   auto const& tt,
                   auto begin,
-                  auto end )
-{
-    std::vector<mockturtle::xag_network::signal> children;
-    for (auto it = begin; it != end; ++it)
-        children.push_back(*it);
+                  auto end,
+                  auto&& on_signal )
+                {
+                    std::vector<mockturtle::xag_network::signal> children;
+                    for (auto it = begin; it != end; ++it)
+                        children.push_back(*it);
 
-    return also::stp_dec(ntk_dest, tt, children, opt_xags);
-};
+                    auto res = also::stp_dec(ntk_dest, tt, children, opt_xags);
+                    return on_signal( res );
+                };
 
-
-          xag_network xag = node_resynthesis<xag_network>( klut, resyn );
-          }
+          xag_network xag2 = node_resynthesis<xag_network>( klut, resyn );
+         // }
           if( is_set("new_entry") )
           {
             store<xag_network>().extend();

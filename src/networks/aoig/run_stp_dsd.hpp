@@ -5,17 +5,15 @@
 #include <cstdlib>
 #include <fstream>
 #include <filesystem>
-
+#include <iostream>
+#include <vector>
 #include <lorina/bench.hpp>
 #include <mockturtle/io/bench_reader.hpp>
 #include <mockturtle/networks/klut.hpp>
 #include <mockturtle/networks/xag.hpp>
 #include <mockturtle/algorithms/klut_to_graph.hpp>
-#include <mockturtle/networks/klut.hpp>
-#include <mockturtle/networks/xag.hpp>
-#include <mockturtle/algorithms/klut_to_graph.hpp>
-#include <mockturtle/networks/utils.hpp>   // clone 在这里
-#include <mockturtle/traits.hpp>           // node_map 在这里
+#include <mockturtle/utils/node_map.hpp>
+#include <kitty/kitty.hpp>
 
 
 namespace also {
@@ -89,9 +87,59 @@ stp_dsd( mockturtle::xag_network& _ntk,
         return {}; // nothing to merge
 
     /* ⑤ 将 tmp_xag 合并到 _ntk */
-        template<typename NtkSrc, typename NtkDst, typename NodeMap>
-        signal<NtkDst> clone( NtkSrc const& src, NtkDst& dst, NodeMap& old2new );
+    mockturtle::node_map<mockturtle::xag_network::signal, mockturtle::xag_network> old2new( tmp_xag );
 
+    /* 常量映射 */
+    old2new[tmp_xag.get_node( tmp_xag.get_constant( false ) )] = _ntk.get_constant( false );
+    old2new[tmp_xag.get_node( tmp_xag.get_constant( true ) )] = _ntk.get_constant( true );
+
+    /* 主输入映射到现有 children */
+    if ( tmp_xag.num_pis() > children.size() )
+    {
+        return {};
+    }
+
+    tmp_xag.foreach_pi( [&]( auto n, auto index ) {
+        old2new[n] = children[index];
+    } );
+
+    /* 复制门 */
+    tmp_xag.foreach_gate( [&]( auto n ) {
+        std::vector<mockturtle::xag_network::signal> fanins;
+        tmp_xag.foreach_fanin( n, [&]( auto const& f ) {
+            auto mapped = old2new[tmp_xag.get_node( f )];
+            if ( tmp_xag.is_complemented( f ) )
+            {
+                mapped = _ntk.create_not( mapped );
+            }
+            fanins.push_back( mapped );
+        } );
+
+        mockturtle::xag_network::signal new_sig{};
+        if ( tmp_xag.is_and( n ) )
+        {
+            new_sig = _ntk.create_and( fanins[0], fanins[1] );
+        }
+        else
+        {
+            new_sig = _ntk.create_xor( fanins[0], fanins[1] );
+        }
+
+        old2new[n] = new_sig;
+    } );
+
+    /* 取第一个 PO 作为返回值 */
+    mockturtle::xag_network::signal out_sig{};
+    tmp_xag.foreach_po( [&]( auto const& f, auto index ) {
+        if ( index == 0u )
+        {
+              out_sig = old2new[tmp_xag.get_node( f )];
+            if ( tmp_xag.is_complemented( f ) )
+            {
+                out_sig = _ntk.create_not( out_sig );
+            }
+        }
+    } );
 
     return out_sig; /* 返回 STP 获得的顶层 XAG 子图 */
 }
