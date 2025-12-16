@@ -16,8 +16,8 @@
 #include <kitty/print.hpp>
 #include <kitty/constructors.hpp>
 
-#include <mockturtle/networks/klut.hpp>
-#include <mockturtle/algorithms/node_resynthesis/exact.hpp>
+#include <nbulsi-mockturtle/include/mockturtle/networks/klut.hpp>
+#include <nbulsi-mockturtle/include/mockturtle/algorithms/node_resynthesis/exact.hpp>
 
 #include "stp_dsd.hpp"
 #include "node_global.hpp"   // new_node / new_in_node
