@@ -33,7 +33,7 @@
 #include "../core/direct_mapping.hpp"
 #include "../networks/aoig/stp_dec.hpp"
 #include "../networks/aoig/run_stp_dsd.hpp"
-
+#include "../networks/aoig/stp_bidec_resynthesis.hpp"
 namespace alice
 {
 
@@ -220,19 +220,14 @@ namespace alice
         else if( is_set("stp_bd") )
         {
           std::cout << "STP bd" << std::endl;
-          xag_network xag;
-          // if( cut_size <= 4 )
-          // {
-          //   xag_npn_lut_resynthesis resyn;
-          //   xag = node_resynthesis<xag_network>( klut, resyn );
-          // }
-          // else
-          {
-            xag_network db;
-            auto opt_xags = also::load_xag_string_db( db );
-            also::xag_stp_dec_resynthesis<xag_network> resyn( opt_xags );
+            klut_network result;
+          also::stp_bidec_lut_resynthesis<klut_network> resyn;
+          result = node_resynthesis<klut_network>( klut, resyn );
 
-            xag = node_resynthesis<xag_network>( klut, resyn );
+          if( is_set( "new_entry" ) )
+          {
+            store<klut_network>().extend();
+            store<klut_network>().current() = cleanup_dangling( result );
           }
         }
 
