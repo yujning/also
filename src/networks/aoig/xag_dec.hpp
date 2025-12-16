@@ -59,6 +59,7 @@ namespace also
       xag_network::signal decompose( kitty::dynamic_truth_table& remainder, std::vector<xag_network::signal> const& children )
       {
         auto sup = get_func_supports( remainder );
+        std::cout<<"remainder: "<<kitty::to_hex(remainder)<<std::endl;
         
         /* check constants */
         if ( kitty::is_const0( remainder ) )
@@ -89,11 +90,27 @@ namespace also
         }
 
         /* top decomposition */
-        for( auto var : sup )
+        for ( auto var : sup )
         {
-          if ( auto res = kitty::is_top_decomposable( remainder, var, &remainder, true );
-              res != kitty::top_decomposition::none )
+          auto before = remainder;  // 记录调用前的 tt
+
+          auto res = kitty::is_top_decomposable( remainder, var, &remainder, true );
+
+          std::cout 
+                    << "[TOP CHECK] var=" << (int)var
+                    << " before=" << kitty::to_hex( before )
+                    << " after="  << kitty::to_hex( remainder )
+                    << " res="    << (int)res
+                    << std::endl;
+
+          if ( res != kitty::top_decomposition::none )
           {
+            std::cout 
+                      << "[TOP HIT] var=" << (int)var
+                      << " remainder=" << kitty::to_hex( remainder )
+                      << " type=" << (int)res
+                      << std::endl;
+
             const auto right = decompose( remainder, children );
 
             switch ( res )
@@ -112,60 +129,86 @@ namespace also
                 return _ntk.create_xor( children[var], right );
             }
           }
-        }
+}
+
         
         /* bottom decomposition */
-        for ( auto j = 1u; j < sup.size(); ++j )
-        {
-          for ( auto i = 0u; i < j; ++i )
+          for ( auto j = 1u; j < sup.size(); ++j )
           {
-            if ( auto res = kitty::is_bottom_decomposable( remainder, sup[i], sup[j], &remainder, true );
-                res != kitty::bottom_decomposition::none ) /* allow XOR */
+            for ( auto i = 0u; i < j; ++i )
             {
-              auto copy = children;
-              switch ( res )
-              {
-                default:
-                  assert( false );
-                case kitty::bottom_decomposition::and_:
-                  copy[sup[i]] = _ntk.create_and( copy[sup[i]], copy[sup[j]] );
-                  break;
-                case kitty::bottom_decomposition::or_:
-                  copy[sup[i]] = _ntk.create_or( copy[sup[i]], copy[sup[j]] );
-                  break;
-                case kitty::bottom_decomposition::lt_:
-                  copy[sup[i]] = _ntk.create_lt( copy[sup[i]], copy[sup[j]] );
-                  break;
-                case kitty::bottom_decomposition::le_:
-                  copy[sup[i]] = _ntk.create_le( copy[sup[i]], copy[sup[j]] );
-                  break;
-                case kitty::bottom_decomposition::xor_:
-                  copy[sup[i]] = _ntk.create_xor( copy[sup[i]], copy[sup[j]] );
-                  break;
-              }
+              auto before = remainder;
 
-              return decompose( remainder, copy ); 
+              auto res = kitty::is_bottom_decomposable( remainder, sup[i], sup[j], &remainder, true );
+
+              std::cout 
+                        << "[BOTTOM CHECK] (" << (int)sup[i] << "," << (int)sup[j] << ")"
+                        << " before=" << kitty::to_hex( before )
+                        << " after="  << kitty::to_hex( remainder )
+                        << " res="    << (int)res
+                        << std::endl;
+
+              if ( res != kitty::bottom_decomposition::none ) /* allow XOR */
+              {
+                std::cout 
+                          << "[BOTTOM HIT] (" << (int)sup[i] << "," << (int)sup[j] << ")"
+                          << " remainder=" << kitty::to_hex( remainder )
+                          << " type=" << (int)res
+                          << std::endl;
+
+                auto copy = children;
+                switch ( res )
+                {
+                  default:
+                    assert( false );
+                  case kitty::bottom_decomposition::and_:
+                    copy[sup[i]] = _ntk.create_and( copy[sup[i]], copy[sup[j]] );
+                    break;
+                  case kitty::bottom_decomposition::or_:
+                    copy[sup[i]] = _ntk.create_or( copy[sup[i]], copy[sup[j]] );
+                    break;
+                  case kitty::bottom_decomposition::lt_:
+                    copy[sup[i]] = _ntk.create_lt( copy[sup[i]], copy[sup[j]] );
+                    break;
+                  case kitty::bottom_decomposition::le_:
+                    copy[sup[i]] = _ntk.create_le( copy[sup[i]], copy[sup[j]] );
+                    break;
+                  case kitty::bottom_decomposition::xor_:
+                    copy[sup[i]] = _ntk.create_xor( copy[sup[i]], copy[sup[j]] );
+                    break;
+                }
+
+                return decompose( remainder, copy); 
+              }
             }
           }
-        }
 
-        if( sup.size() > 4u || !_ps.with_npn4 )
-        {
-          /* shannon decomposition */
-          auto var = sup.front();
+          if( sup.size() > 4u || !_ps.with_npn4 )
+          {
+            auto var = sup.front();
+
           auto c0 = kitty::cofactor0( remainder, var );
           auto c1 = kitty::cofactor1( remainder, var );
 
           const auto f0  = decompose( c0, children );  
           const auto f1  = decompose( c1, children );  
 
-          return _ntk.create_ite( children[var], f1, f0 );
-        }
-        else
-        {
-          /* NPN transformation */
-          return xag_from_npn( remainder, children );
-        }
+            std::cout 
+                      << "[SHANNON] var=" << (int)sup.front()
+                      << " f0=" << kitty::to_hex(c0)
+                      << " f1=" << kitty::to_hex(c1)
+                      << std::endl;
+
+            return _ntk.create_ite( children[var], f1, f0 );
+          }
+          else
+          {
+            std::cout 
+                      << "[NPN] remainder=" << kitty::to_hex(remainder)
+                      << std::endl;
+            return xag_from_npn( remainder, children );
+          }
+
 
         assert( false );
       }
@@ -191,7 +234,7 @@ namespace also
         const auto config = kitty::exact_npn_canonization( tt );
 
         auto func_str = "0x" + kitty::to_hex( std::get<0>( config ) );
-        //std::cout << " process function " << func_str << std::endl;
+        std::cout << " process function " << func_str << std::endl;
 
         const auto it = opt_xags.find( func_str );
         assert( it != opt_xags.end() );

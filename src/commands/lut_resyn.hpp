@@ -31,6 +31,8 @@
 #include "../networks/img/img_all.hpp"
 #include "../core/misc.hpp"
 #include "../core/direct_mapping.hpp"
+#include "../networks/aoig/stp_dec.hpp"
+#include "../networks/aoig/run_stp_dsd.hpp"
 
 namespace alice
 {
@@ -52,6 +54,7 @@ namespace alice
         add_flag( "--xag, -g",  "using xag as target logic network" );
         add_flag( "--new_entry, -n", "adds new store entry" );
         add_flag( "--enable_direct_mapping, -e", "enable aig to xmg by direct mapping for comparison" );
+        add_flag("--stp_bd, -d","use bi_decomposition to run stp for dsd ") ;
       }
 
       rules validity_rules() const
@@ -213,6 +216,27 @@ namespace alice
             store<xag_network>().current() = xag;
           }
         }
+
+        else if( is_set("stp_bd") )
+        {
+          std::cout << "STP bd" << std::endl;
+          xag_network xag;
+          // if( cut_size <= 4 )
+          // {
+          //   xag_npn_lut_resynthesis resyn;
+          //   xag = node_resynthesis<xag_network>( klut, resyn );
+          // }
+          // else
+          {
+            xag_network db;
+            auto opt_xags = also::load_xag_string_db( db );
+            also::xag_stp_dec_resynthesis<xag_network> resyn( opt_xags );
+
+            xag = node_resynthesis<xag_network>( klut, resyn );
+          }
+        }
+
+
         else
         {
           mig_npn_resynthesis resyn;
@@ -228,7 +252,7 @@ namespace alice
       }
 
     private:
-      int cut_size = 4;
+      int cut_size = 8;
   };
 
   ALICE_ADD_COMMAND( lut_resyn, "Exact synthesis" )
