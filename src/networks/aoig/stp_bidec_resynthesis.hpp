@@ -13,6 +13,9 @@
 #include <api/truth_table.hpp>
 
 #include <mockturtle/networks/klut.hpp>
+#include <mockturtle/networks/klut.hpp>
+
+#include <algorithm>
 
 #include <functional>
 #include <optional>
@@ -44,11 +47,11 @@ public:
     for ( auto index = 0u; index < decomposition->variable_order.size(); ++index )
     {
       const auto var_id = decomposition->variable_order[index];
-      if ( var_id <= 0 || static_cast<std::size_t>( var_id ) > children.size() )
+       if ( var_id <= 0 || index >= children.size() )
       {
         return;
       }
-      inputs.emplace( var_id, children[var_id - 1] );
+         inputs.emplace( var_id, children[index] );
     }
 
     std::unordered_map<int, DSDNode> node_lookup;
@@ -94,9 +97,12 @@ public:
       }
       else
       {
+        std::vector<int> child_ids = node.child;
+        std::reverse( child_ids.begin(), child_ids.end() );
+
         std::vector<typename Ntk::signal> fanins;
-        fanins.reserve( node.child.size() );
-        for ( auto child_id : node.child )
+        fanins.reserve( child_ids.size() );
+        for ( auto child_id : child_ids )
         {
           auto child_sig = build( child_id );
           if ( !child_sig )
