@@ -20,6 +20,7 @@
 #include <functional>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 namespace also
 {
@@ -43,21 +44,23 @@ public:
       return;
     }
 
-    std::unordered_map<int, typename Ntk::signal> inputs;
+    std::vector<int> original_from_var_id( decomposition->variable_order.size() + 1, 0 );
     for ( auto index = 0u; index < decomposition->variable_order.size(); ++index )
     {
-      const auto var_id = decomposition->variable_order[index];
-       if ( var_id <= 0 || index >= children.size() )
+      const auto original_var = decomposition->variable_order[index];
+      const auto mapped_var_id = static_cast<int>( index + 1 );
+
+      if ( original_var <= 0 )
       {
         return;
       }
-         inputs.emplace( var_id, children[index] );
+          original_from_var_id[mapped_var_id] = original_var;
     }
 
     std::unordered_map<int, DSDNode> node_lookup;
     for ( auto const& node : decomposition->nodes )
     {
-      node_lookup.emplace( node.id, node );
+       node_lookup.try_emplace( node.id, node );
     }
 
     std::unordered_map<int, typename Ntk::signal> cache;
@@ -80,12 +83,17 @@ public:
 
       if ( node.func == "in" )
       {
-        auto input_it = inputs.find( node.var_id );
-        if ( input_it == inputs.end() )
+      if ( node.var_id <= 0 || node.var_id >= static_cast<int>( original_from_var_id.size() ) )
         {
           return std::nullopt;
         }
-        result = input_it->second;
+               const auto original_var = original_from_var_id[node.var_id];
+        if ( original_var <= 0 || static_cast<size_t>( original_var ) > children.size() )
+        {
+          return std::nullopt;
+        }
+
+        result = children[original_var - 1];
       }
       else if ( node.func == "0" )
       {
@@ -98,7 +106,7 @@ public:
       else
       {
         std::vector<int> child_ids = node.child;
-        std::reverse( child_ids.begin(), child_ids.end() );
+    
 
         std::vector<typename Ntk::signal> fanins;
         fanins.reserve( child_ids.size() );
@@ -123,7 +131,8 @@ public:
           {
             if ( node.func[i] == '1' )
             {
-              kitty::set_bit( tt, i );
+                         const auto bit_index = node.func.size() - 1 - i;
+              kitty::set_bit( tt, bit_index );
             }
           }
           result = ntk.create_node( fanins, tt );
