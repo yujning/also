@@ -32,30 +32,41 @@ public:
   template<typename LeavesIterator, typename Fn>
   void operator()( Ntk& ntk, kitty::dynamic_truth_table const& function, LeavesIterator begin, LeavesIterator end, Fn&& fn ) const
   {
+        std::vector<typename Ntk::signal> children( begin, end );
+    if ( children.size() <= 2u )
+    {
+      fn( ntk.create_node( children, function ) );
+      return;
+    }
+
     auto decomposition = stp::capture_bidecomposition( function );
     if ( !decomposition )
     {
       return;
     }
 
-    std::vector<typename Ntk::signal> children( begin, end );
+    
     if ( decomposition->variable_order.size() > children.size() )
     {
       return;
     }
 
-    std::vector<int> original_from_var_id( decomposition->variable_order.size() + 1, 0 );
-    for ( auto index = 0u; index < decomposition->variable_order.size(); ++index )
+        std::unordered_map<int, typename Ntk::signal> var_to_signal;
+    if ( decomposition->variable_order.size() == children.size() )
     {
-      const auto original_var = decomposition->variable_order[index];
-      const auto mapped_var_id = static_cast<int>( index + 1 );
-
-      if ( original_var <= 0 )
+            for ( auto i = 0u; i < decomposition->variable_order.size(); ++i )
       {
-        return;
+        var_to_signal.emplace( decomposition->variable_order[i], children[i] );
       }
-          original_from_var_id[mapped_var_id] = original_var;
     }
+    else
+    {
+      for ( auto i = 0u; i < children.size(); ++i )
+      {
+        var_to_signal.emplace( static_cast<int>( i + 1 ), children[i] );
+      }
+    }
+
 
     std::unordered_map<int, DSDNode> node_lookup;
     for ( auto const& node : decomposition->nodes )
@@ -83,17 +94,14 @@ public:
 
       if ( node.func == "in" )
       {
-      if ( node.var_id <= 0 || node.var_id >= static_cast<int>( original_from_var_id.size() ) )
+        if ( auto it = var_to_signal.find( node.var_id ); it != var_to_signal.end() )
+        {
+          result = it->second;
+        }
+        else
         {
           return std::nullopt;
         }
-               const auto original_var = original_from_var_id[node.var_id];
-        if ( original_var <= 0 || static_cast<size_t>( original_var ) > children.size() )
-        {
-          return std::nullopt;
-        }
-
-        result = children[original_var - 1];
       }
       else if ( node.func == "0" )
       {
