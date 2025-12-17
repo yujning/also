@@ -31,8 +31,8 @@
 #include "../networks/img/img_all.hpp"
 #include "../core/misc.hpp"
 #include "../core/direct_mapping.hpp"
-#include "../networks/aoig/stp_dec.hpp"
-#include "../networks/aoig/run_stp_dsd.hpp"
+
+
 #include "../networks/aoig/stp_bidec_resynthesis.hpp"
 namespace alice
 {
@@ -219,9 +219,20 @@ namespace alice
 
         else if( is_set("stp_bd") )
         {
-          std::cout << "STP bd" << std::endl;
-            klut_network result;
+          std::cout << "\n========== STP双分解开始 ==========\n";
+          
+          klut_network result;
           also::stp_bidec_lut_resynthesis<klut_network> resyn;
+          
+          // 使用拓扑视图确保按序处理
+          mockturtle::topo_view topo_klut{klut};
+          
+          int node_count = 0;
+          topo_klut.foreach_gate([&](auto node) {
+            node_count++;
+            std::cout << "\n--- 处理节点 #" << node_count << " (原始ID=" << node << ") ---\n";
+          });
+          
           result = node_resynthesis<klut_network>( klut, resyn );
 
           if( is_set( "new_entry" ) )
@@ -229,6 +240,8 @@ namespace alice
             store<klut_network>().extend();
             store<klut_network>().current() = cleanup_dangling( result );
           }
+          
+          std::cout << "\n========== STP双分解完成 ==========\n";
         }
 
 
