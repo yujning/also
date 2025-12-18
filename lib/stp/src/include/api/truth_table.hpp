@@ -7,7 +7,6 @@
 #include <kitty/dynamic_truth_table.hpp>
 #include <kitty/print.hpp>
 
-#include <algorithm>
 #include <optional>
 #include <numeric>
 
@@ -64,9 +63,7 @@ inline bool run_dsd_from_hex(const std::string& hex_truth_table)
 
   std::ostringstream oss;
   kitty::print_binary(tt, oss);
-  auto binary = oss.str();
-  std::reverse(binary.begin(), binary.end());
-  return run_dsd_recursive(binary);
+  return run_dsd_recursive(oss.str());
 }
 
 /**
@@ -91,17 +88,13 @@ inline bool run_bidecomposition(const kitty::dynamic_truth_table& tt)
 {
   std::ostringstream oss;
   kitty::print_binary(tt, oss);
-  auto binary = oss.str();
-  std::reverse(binary.begin(), binary.end());
-  return run_bi_decomp_recursive(binary);
+  return run_bi_decomp_recursive(oss.str());
 }
 
 inline std::optional<bidecomposition_nodes> capture_bidecomposition(const kitty::dynamic_truth_table& tt)
 {
   std::ostringstream oss;
   kitty::print_binary(tt, oss);
-  auto binary = oss.str();
-  std::reverse(binary.begin(), binary.end());
 
   RESET_NODE_GLOBAL();
   const auto prev_output = BD_MINIMAL_OUTPUT;
@@ -112,7 +105,7 @@ inline std::optional<bidecomposition_nodes> capture_bidecomposition(const kitty:
     ORIGINAL_VAR_COUNT = static_cast<int>(num_vars);
 
   TT root;
-  root.f01 = binary;
+  root.f01 = oss.str();
   root.order.resize(num_vars);
   // Match STP default: position1 -> variable num_vars (MSB in BENCH), positionN -> variable1 (LSB)
   for (size_t i = 0; i < num_vars; ++i)
@@ -149,9 +142,7 @@ inline bool run_dsd(const kitty::dynamic_truth_table& tt)
 {
   std::ostringstream oss;
   kitty::print_binary(tt, oss);
-  auto binary = oss.str();
-  std::reverse(binary.begin(), binary.end());
-  return run_dsd_recursive(binary);
+  return run_dsd_recursive(oss.str());
 }
 
 } // namespace stp
