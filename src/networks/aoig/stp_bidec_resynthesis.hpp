@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <functional>
 #include <optional>
+#include <cassert>
 #include <unordered_map>
 #include <vector>
 
@@ -52,6 +53,7 @@ public:
     // Map STP variable IDs to mockturtle signals
     std::unordered_map<int, typename Ntk::signal> var_to_signal;
     const auto n = children.size();
+    assert( decomposition->variable_order.empty() || decomposition->variable_order.size() == n );
     for ( auto i = 0u; i < n; ++i )
     {
       // STP variable 1 is LSB, variable n is MSB; bench fanin order is LSB→MSB
