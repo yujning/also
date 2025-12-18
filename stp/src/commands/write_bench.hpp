@@ -34,6 +34,7 @@ static std::string varname_from_id(int v)
 static std::string bin_to_hex(const std::string& bin)
 {
     std::string b = bin;
+    std::reverse(b.begin(), b.end());
 
     while (b.size() % 4 != 0)
         b = "0" + b;
