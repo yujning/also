@@ -27,32 +27,21 @@ This ensures:
 - Position i → Variable (n - i)
 - Position n-1 → Variable 1 (LSB in STP's convention)
 
-### 2. Fanin Ordering and Truth Table Bit Permutation
+### 2. Fanin Ordering in Network Construction
 **File**: `src/networks/aoig/stp_bidec_resynthesis.hpp`
 
-**Issue**: STP internally stores children in MSB-first order, while mockturtle expects LSB-first order. Additionally, for 2-input functions, the truth table bits are indexed differently between STP (MSB-first) and mockturtle (LSB-first), requiring bit permutation.
+**Issue**: STP internally stores children in a specific order, and write_bench reverses them when outputting to BENCH format. Mockturtle expects the same ordering as BENCH format.
 
-**Fix**: 
-1. Added truth table bit swapping for 2-input functions:
+**Fix**: Simply reverse the fanins to match BENCH output conventions:
 ```cpp
-if ( num_vars == 2 )
-{
-  // For 2 inputs, swap bits 1 and 2 to convert between MSB-first and LSB-first
-  std::string swapped_func = node.func;
-  if ( swapped_func.size() == 4 )
-  {
-    std::swap( swapped_func[1], swapped_func[2] );
-  }
-  // ... set bits in truth table ...
-}
-```
-
-2. Added fanins reversal to match BENCH output conventions:
-```cpp
+// STP's write_bench reverses children for BENCH output
+// We do the same to match that convention
 std::vector<typename Ntk::signal> reversed_fanins = fanins;
 std::reverse( reversed_fanins.begin(), reversed_fanins.end() );
 result = ntk.create_node( reversed_fanins, tt );
 ```
+
+The truth table is used as-is without any bit permutation. This matches exactly what write_bench does - reverse children order only.
 
 ## Technical Details
 
@@ -90,28 +79,16 @@ This means:
 - `children[0]` (kitty var0, LSB) → STP varn (LSB) ✓
 - `children[n-1]` (kitty var n-1, MSB) → STP var1 (MSB) ✓
 
-### Truth Table Bit Ordering
+### Children Order Conversion
 
-For 2-input functions, the truth table bits need to be permuted when converting between STP and mockturtle:
+STP stores children in a specific order. When STP's write_bench outputs to BENCH format, it reverses the children. We do the same in resynthesis:
 
-**STP (MSB-first)**:
-- Bit i represents: f(MSB=bit1(i), LSB=bit0(i))
-- For function with order [var2, var1]: bit_i = f(var2=bit1(i), var1=bit0(i))
+1. STP node has children [child_a, child_b, ...]
+2. Reverse to get [... , child_b, child_a]
+3. Create mockturtle node with reversed children and original truth table
+4. This matches the BENCH format convention
 
-**Mockturtle (LSB-first)**:
-- Bit i represents: f(child0=bit0(i), child1=bit1(i))
-- With children [signal_var2, signal_var1]: bit_i = f(var2=bit0(i), var1=bit1(i))
-
-**Solution**: Swap bits 1 and 2 in the truth table
-- Original: [b0, b1, b2, b3]
-- Swapped: [b0, b2, b1, b3]
-
-Example:
-- STP truth table 0111 with order [var2, var1]
-- After swap: 0111 (in this case b1=b2=1, so unchanged)
-- With reversed fanins: creates correct mockturtle node
-
-This bit swapping combined with fanins reversal ensures correct equivalence between STP decomposition and mockturtle representation.
+The truth table remains unchanged - no bit permutation is needed.
 
 ## Verification
 
