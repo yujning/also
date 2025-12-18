@@ -113,14 +113,12 @@ inline std::optional<bidecomposition_nodes> capture_bidecomposition(const kitty:
 
   TT root;
   root.f01 = binary;
-    root.order.resize(num_vars);
-  // Use sequential ordering to match BENCH format convention
-    // Position i corresponds to variable (i + 1)
-    // Variables go from 1 (LSB) to n (MSB)
-    for (size_t i = 0; i < num_vars; ++i)
-    {
-          root.order[i] = static_cast<int>(i + 1);
-    }
+  root.order.resize(num_vars);
+  // Match STP default: position1 -> variable num_vars (MSB in BENCH), positionN -> variable1 (LSB)
+  for (size_t i = 0; i < num_vars; ++i)
+  {
+    root.order[i] = static_cast<int>(num_vars - i);
+  }
 
     for (int v = 1; v <= ORIGINAL_VAR_COUNT; ++v)
     {
