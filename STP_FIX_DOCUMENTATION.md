@@ -58,10 +58,13 @@ result = ntk.create_node( reversed_fanins, tt );
 - Internal representation uses root.order to map positions to variable IDs
 
 **Mapping**:
-- Kitty var0 (LSB) ↔ STP varn (LSB)
-- Kitty var1 ↔ STP var(n-1)
-- ...
-- Kitty var(n-1) (MSB) ↔ STP var1 (MSB)
+For example, with n=3 variables:
+- Kitty var0 (LSB) ↔ STP var3 (LSB)
+- Kitty var1 ↔ STP var2
+- Kitty var2 (MSB) ↔ STP var1 (MSB)
+
+In general:
+- Kitty var_i ↔ STP var_(n - i)
 
 ### Signal Mapping in Resynthesis
 
