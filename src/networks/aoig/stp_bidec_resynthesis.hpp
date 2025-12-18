@@ -51,17 +51,17 @@ public:
 
        // Map STP variable IDs to mockturtle signals
     // STP uses 1-based indexing: variables [1, 2, 3, ..., n]
-    // In STP's truth table representation, variable 1 is MSB, variable n is LSB
-    // mockturtle children[0] is LSB (variable n), children[n-1] is MSB (variable 1)
+    // In BENCH format, variables go left to right as LSB to MSB
+    // mockturtle children[0] is LSB (variable 1), children[n-1] is MSB (variable n)
     std::unordered_map<int, typename Ntk::signal> var_to_signal;
     const auto n = children.size();
     
     for ( auto i = 0u; i < n; ++i )
     {
-           // children[i] corresponds to STP variable (n - i)
-      // children[0] -> variable n (LSB)
-      // children[n-1] -> variable 1 (MSB)
-      int stp_var_id = static_cast<int>( n - i );
+           // children[i] corresponds to STP variable (i + 1)
+      // children[0] -> variable 1 (LSB)
+      // children[n-1] -> variable n (MSB)
+      int stp_var_id = static_cast<int>( i + 1 );
       var_to_signal[stp_var_id] = children[i];
     }
 
@@ -150,10 +150,16 @@ public:
           for ( size_t i = 0; i < node.func.size(); ++i )
           {
             if ( node.func[i] == '1' )
-            {            kitty::set_bit( tt, i );
+            {
+              kitty::set_bit( tt, i );
             }
           }
-                   result = ntk.create_node( fanins, tt );
+          
+          // STP stores children in the order they appear in node.child
+          // write_bench reverses them for BENCH output, so we should do the same
+          std::vector<typename Ntk::signal> reversed_fanins = fanins;
+          std::reverse( reversed_fanins.begin(), reversed_fanins.end() );
+                   result = ntk.create_node( reversed_fanins, tt );
         }
       }
      // Cache the result
