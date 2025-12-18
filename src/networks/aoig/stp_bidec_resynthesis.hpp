@@ -155,11 +155,9 @@ public:
             }
           }
           
-          // STP stores children in the order they appear in node.child
-          // write_bench reverses them for BENCH output, so we should do the same
-          std::vector<typename Ntk::signal> reversed_fanins = fanins;
-          std::reverse( reversed_fanins.begin(), reversed_fanins.end() );
-                   result = ntk.create_node( reversed_fanins, tt );
+          // Use fanins directly without reversing
+          // STP's write_bench reverses for output, but we match STP's internal representation
+                   result = ntk.create_node( fanins, tt );
         }
       }
      // Cache the result
