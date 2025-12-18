@@ -27,15 +27,28 @@ This ensures:
 - Position i → Variable (n - i)
 - Position n-1 → Variable 1 (LSB in STP's convention)
 
-### 2. Fanin Ordering Mismatch in Network Construction
+### 2. Fanin Ordering and Truth Table Bit Permutation
 **File**: `src/networks/aoig/stp_bidec_resynthesis.hpp`
 
-**Issue**: STP internally stores children in MSB-first order, while mockturtle expects LSB-first order. When constructing LUT nodes from STP's decomposition, the children were being passed directly without conversion, causing incorrect signal mappings.
+**Issue**: STP internally stores children in MSB-first order, while mockturtle expects LSB-first order. Additionally, for 2-input functions, the truth table bits are indexed differently between STP (MSB-first) and mockturtle (LSB-first), requiring bit permutation.
 
-**Fix**: Added fanins reversal before creating nodes:
+**Fix**: 
+1. Added truth table bit swapping for 2-input functions:
 ```cpp
-// STP stores children in MSB-first order internally
-// but mockturtle expects LSB-first order, so reverse fanins
+if ( num_vars == 2 )
+{
+  // For 2 inputs, swap bits 1 and 2 to convert between MSB-first and LSB-first
+  std::string swapped_func = node.func;
+  if ( swapped_func.size() == 4 )
+  {
+    std::swap( swapped_func[1], swapped_func[2] );
+  }
+  // ... set bits in truth table ...
+}
+```
+
+2. Added fanins reversal to match BENCH output conventions:
+```cpp
 std::vector<typename Ntk::signal> reversed_fanins = fanins;
 std::reverse( reversed_fanins.begin(), reversed_fanins.end() );
 result = ntk.create_node( reversed_fanins, tt );
@@ -77,14 +90,28 @@ This means:
 - `children[0]` (kitty var0, LSB) → STP varn (LSB) ✓
 - `children[n-1]` (kitty var n-1, MSB) → STP var1 (MSB) ✓
 
-### Truth Table Consistency
+### Truth Table Bit Ordering
 
-After reversing fanins from `[MSB_signal, LSB_signal]` to `[LSB_signal, MSB_signal]`, the truth table remains valid because:
+For 2-input functions, the truth table bits need to be permuted when converting between STP and mockturtle:
 
-For any bit index i:
-- STP interpretation: tt[i] = f(MSB=bit(n-1)(i), ..., LSB=bit0(i))
-- Mockturtle interpretation after reversal: tt[i] = f(child0=bit0(i), ..., child(n-1)=bit(n-1)(i))
-- Since child0 = LSB_signal and child(n-1) = MSB_signal, both evaluate to the same value
+**STP (MSB-first)**:
+- Bit i represents: f(MSB=bit1(i), LSB=bit0(i))
+- For function with order [var2, var1]: bit_i = f(var2=bit1(i), var1=bit0(i))
+
+**Mockturtle (LSB-first)**:
+- Bit i represents: f(child0=bit0(i), child1=bit1(i))
+- With children [signal_var2, signal_var1]: bit_i = f(var2=bit0(i), var1=bit1(i))
+
+**Solution**: Swap bits 1 and 2 in the truth table
+- Original: [b0, b1, b2, b3]
+- Swapped: [b0, b2, b1, b3]
+
+Example:
+- STP truth table 0111 with order [var2, var1]
+- After swap: 0111 (in this case b1=b2=1, so unchanged)
+- With reversed fanins: creates correct mockturtle node
+
+This bit swapping combined with fanins reversal ensures correct equivalence between STP decomposition and mockturtle representation.
 
 ## Verification
 
