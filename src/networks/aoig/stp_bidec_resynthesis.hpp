@@ -153,7 +153,12 @@ public:
             {            kitty::set_bit( tt, i );
             }
           }
-                   result = ntk.create_node( fanins, tt );
+          
+          // STP stores children in MSB-first order internally
+          // but mockturtle expects LSB-first order, so reverse fanins
+          std::vector<typename Ntk::signal> reversed_fanins = fanins;
+          std::reverse( reversed_fanins.begin(), reversed_fanins.end() );
+                   result = ntk.create_node( reversed_fanins, tt );
         }
       }
      // Cache the result
