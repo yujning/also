@@ -107,11 +107,12 @@ inline std::optional<bidecomposition_nodes> capture_bidecomposition(const kitty:
     TT root;
     root.f01 = oss.str();
     root.order.resize(num_vars);
-    // Use MSB-first ordering to match bi_decomp_recursive convention
-    // Position i corresponds to variable (num_vars - i)
+    // Use sequential ordering to match BENCH format convention
+    // Position i corresponds to variable (i + 1)
+    // Variables go from 1 (LSB) to n (MSB)
     for (size_t i = 0; i < num_vars; ++i)
     {
-        root.order[i] = static_cast<int>(num_vars - i);
+        root.order[i] = static_cast<int>(i + 1);
     }
 
     for (int v = 1; v <= ORIGINAL_VAR_COUNT; ++v)
