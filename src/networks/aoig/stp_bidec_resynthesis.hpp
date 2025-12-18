@@ -52,21 +52,11 @@ public:
     // Map STP variable IDs to mockturtle signals
     std::unordered_map<int, typename Ntk::signal> var_to_signal;
     const auto n = children.size();
-
-    if ( !decomposition->variable_order.empty() && decomposition->variable_order.size() == n )
+    for ( auto i = 0u; i < n; ++i )
     {
-      for ( auto i = 0u; i < n; ++i )
-      {
-        var_to_signal[decomposition->variable_order[i]] = children[i];
-      }
-    }
-    else
-    {
-      for ( auto i = 0u; i < n; ++i )
-      {
-        int stp_var_id = static_cast<int>( i + 1 );
-        var_to_signal[stp_var_id] = children[i];
-      }
+      // STP variable 1 is LSB, variable n is MSB; bench fanin order is LSB→MSB
+      int stp_var_id = static_cast<int>( i + 1 );
+      var_to_signal[stp_var_id] = children[i];
     }
 
     // Build lookup table for DSD nodes
