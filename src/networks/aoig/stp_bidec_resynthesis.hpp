@@ -74,7 +74,7 @@ public:
       std::size_t operator()( CacheKey const& k ) const 
       {
         std::size_t seed = std::hash<int>{}( k.dsd_node_id );
-        for ( auto v : k.var_context )
+        for ( auto const& v : k.var_context )
         {
           // Boost hash_combine algorithm using golden ratio constant
           seed ^= std::hash<uint64_t>{}( v ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
