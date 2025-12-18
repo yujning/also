@@ -219,31 +219,33 @@ namespace alice
 
         else if( is_set("stp_bd") )
         {
-          std::cout << "\n========== STP双分解开始 ==========\n";
-          
           klut_network result;
-          also::stp_bidec_lut_resynthesis<klut_network> resyn;
+          also:: stp_bidec_lut_resynthesis<klut_network> resyn;
           
-          // 使用拓扑视图确保按序处理
           mockturtle::topo_view topo_klut{klut};
           
-          int node_count = 0;
+          // 统计每个节点被访问的次数
+          std::unordered_map<uint64_t, int> node_visit_count;
+          
           topo_klut.foreach_gate([&](auto node) {
-            node_count++;
-            std::cout << "\n--- 处理节点 #" << node_count << " (原始ID=" << node << ") ---\n";
+            node_visit_count[klut.node_to_index(node)]++;
           });
           
+          std::cout << "\n节点重复访问统计:\n";
+          for ( auto const& [node_id, count] : node_visit_count ) {
+            if ( count > 1 ) {
+              std::cout << "  节点 " << node_id << " 被访问 " << count << " 次\n";
+            }
+          }
+          
           result = node_resynthesis<klut_network>( klut, resyn );
-
+          
           if( is_set( "new_entry" ) )
           {
             store<klut_network>().extend();
             store<klut_network>().current() = cleanup_dangling( result );
           }
-          
-          std::cout << "\n========== STP双分解完成 ==========\n";
         }
-
 
         else
         {
