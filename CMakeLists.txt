@@ -4,7 +4,7 @@ project(also LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(ALSO_ENABLE_STP "Build and link the STP solver target if available" OFF)
+option(ALSO_ENABLE_STP "Build and link the STP solver target if available" ON)
 set(ALSO_STP_BIN "" CACHE STRING "Absolute path to the STP binary for runtime invocation")
 
 # Check whether the STP source tree is present so downstream CMakeLists can gate on it
