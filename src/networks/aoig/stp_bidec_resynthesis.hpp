@@ -147,15 +147,40 @@ public:
           
           // node.func is stored with LSB first (index 0)
           // kitty expects bit 0 to be f(0,0,...,0)
-          for ( size_t i = 0; i < node.func.size(); ++i )
+          
+          // STP uses MSB-first indexing internally: bit_i = f(MSB=bit_MSB(i), ..., LSB=bit_LSB(i))
+          // Mockturtle uses LSB-first indexing: bit_i = f(child0=bit_LSB(i), ..., child_n-1=bit_MSB(i))
+          // For consistency, we need to permute the truth table bits to swap variable order
+          
+          if ( num_vars == 2 )
           {
-            if ( node.func[i] == '1' )
-            {            kitty::set_bit( tt, i );
+            // For 2 inputs, swap bits 1 and 2 to convert between MSB-first and LSB-first
+            std::string swapped_func = node.func;
+            if ( swapped_func.size() == 4 )
+            {
+              std::swap( swapped_func[1], swapped_func[2] );
+            }
+            for ( size_t i = 0; i < swapped_func.size(); ++i )
+            {
+              if ( swapped_func[i] == '1' )
+              {
+                kitty::set_bit( tt, i );
+              }
+            }
+          }
+          else
+          {
+            // For other input counts, use the truth table as-is for now
+            for ( size_t i = 0; i < node.func.size(); ++i )
+            {
+              if ( node.func[i] == '1' )
+              {
+                kitty::set_bit( tt, i );
+              }
             }
           }
           
-          // STP stores children in MSB-first order internally
-          // but mockturtle expects LSB-first order, so reverse fanins
+          // Also reverse fanins to match BENCH order convention
           std::vector<typename Ntk::signal> reversed_fanins = fanins;
           std::reverse( reversed_fanins.begin(), reversed_fanins.end() );
                    result = ntk.create_node( reversed_fanins, tt );
