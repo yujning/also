@@ -48,12 +48,15 @@ public:
       return;
     }
 
-    // ⭐ 关键改动1：创建变量上下文的唯一标识
+    // ⭐ 关键改动1：创建变量上下文的唯一标识（包含节点索引和极性）
     std::vector<uint64_t> context_key;
     context_key.reserve( children.size() );
     for ( auto const& sig : children )
     {
-      context_key.push_back( ntk.node_to_index( ntk.get_node( sig ) ) );
+      // 将节点索引和极性编码到一个uint64_t中
+      uint64_t node_idx = ntk.node_to_index( ntk.get_node( sig ) );
+      uint64_t polarity = ntk.is_complemented( sig ) ? 1 : 0;
+      context_key.push_back( (node_idx << 1) | polarity );
     }
     
     // ⭐ 关键改动2：将上下文哈希纳入 cache key
