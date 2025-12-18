@@ -20,7 +20,6 @@
 #include <optional>
 #include <unordered_map>
 #include <vector>
-#include <iostream>
 
 namespace also
 {
@@ -29,172 +28,154 @@ template<class Ntk>
 class stp_bidec_lut_resynthesis
 {
 public:
-  // 记录分解信息的结构
-  struct decomp_info
-  {
-    int original_node_id;
-    std::string original_node_name;
-    std::vector<int> sub_node_ids;
-    std::vector<std::string> sub_node_names;
-  };
-
-  std::vector<decomp_info> decomposition_log;
-
   template<typename LeavesIterator, typename Fn>
   void operator()( Ntk& ntk, kitty::dynamic_truth_table const& function, 
                   LeavesIterator begin, LeavesIterator end, Fn&& fn ) const
   {
     std::vector<typename Ntk::signal> children( begin, end );
     
-    // 对于2输入及以下，直接创建节点
+    // Keep 2-input and below LUTs unchanged as requested
     if ( children.size() <= 2u )
     {
       fn( ntk.create_node( children, function ) );
       return;
     }
 
-    // 调用STP双分解
+    // Try STP bi-decomposition for 3+ input LUTs
     auto decomposition = stp::capture_bidecomposition( function );
     if ( !decomposition )
     {
-      // 分解失败，使用原始LUT
-      std::cout << "⚠️  STP分解失败，保持原始LUT\n";
+      // Decomposition failed, keep original LUT
       fn( ntk.create_node( children, function ) );
       return;
     }
 
-    if ( decomposition->variable_order.size() > children.size() )
-    {
-      std::cout << "⚠️  变量顺序不匹配，保持原始LUT\n";
-      fn( ntk.create_node( children, function ) );
-      return;
-    }
-
-    std::cout << "\n📌 开始分解LUT (输入数=" << children.size() << ")\n";
-
-    // ⭐⭐⭐ 关键：反转映射，匹配bd的变量编号约定
-    // children[0] 是最低位 → 对应 bd 中的变量 n
-    // children[n-1] 是最高位 → 对应 bd 中的变量 1
+    // Map STP variable IDs to mockturtle signals
+    // STP uses 1-based indexing: variables [1, 2, 3, ..., n]
+    // In STP's truth table representation, variable 1 is MSB, variable n is LSB
+    // mockturtle children[0] is LSB (variable n), children[n-1] is MSB (variable 1)
     std::unordered_map<int, typename Ntk::signal> var_to_signal;
     const auto n = children.size();
+    
     for ( auto i = 0u; i < n; ++i )
     {
-      var_to_signal.emplace( static_cast<int>( n - i ), children[i] );
+      // children[i] corresponds to STP variable (n - i)
+      // children[0] -> variable n (LSB)
+      // children[n-1] -> variable 1 (MSB)
+      int stp_var_id = static_cast<int>( n - i );
+      var_to_signal[stp_var_id] = children[i];
     }
 
-    // 构建节点查找表
+    // Build lookup table for DSD nodes
     std::unordered_map<int, DSDNode> node_lookup;
     for ( auto const& node : decomposition->nodes )
     {
-      node_lookup.try_emplace( node.id, node );
+      node_lookup[node.id] = node;
     }
 
-    // 缓存已构建的节点
+    // Cache for built signals to avoid rebuilding same nodes
     std::unordered_map<int, typename Ntk::signal> cache;
-    
-    // 记录创建的子节点（用于命名）
-    std::vector<typename Ntk::signal> created_nodes;
 
-    // 递归构建函数
+    // Recursive function to build network from DSD nodes
     std::function<std::optional<typename Ntk::signal>( int )> build = 
-      [&]( int id ) -> std::optional<typename Ntk::signal> 
+      [&]( int node_id ) -> std::optional<typename Ntk::signal> 
     {
-      if ( auto it = cache.find( id ); it != cache.end() )
+      // Check cache first
+      auto cache_it = cache.find( node_id );
+      if ( cache_it != cache.end() )
       {
-        return it->second;
+        return cache_it->second;
       }
 
-      auto node_it = node_lookup.find( id );
+      // Find the node
+      auto node_it = node_lookup.find( node_id );
       if ( node_it == node_lookup.end() )
       {
         return std::nullopt;
       }
 
       const auto& node = node_it->second;
-      typename Ntk::signal result{};
+      typename Ntk::signal result;
 
+      // Handle input nodes
       if ( node.func == "in" )
       {
-        // 输入节点
-        if ( auto it = var_to_signal.find( node.var_id ); it != var_to_signal.end() )
-        {
-          result = it->second;
-          std::cout << "  输入节点 " << id << " → 变量 " << node.var_id << "\n";
-        }
-        else
+        auto var_it = var_to_signal.find( node.var_id );
+        if ( var_it == var_to_signal.end() )
         {
           return std::nullopt;
         }
+        result = var_it->second;
       }
+      // Handle constant nodes
       else if ( node.func == "0" )
       {
         result = ntk.get_constant( false );
-        std::cout << "  常数0节点 " << id << "\n";
       }
       else if ( node.func == "1" )
       {
         result = ntk.get_constant( true );
-        std::cout << "  常数1节点 " << id << "\n";
       }
+      // Handle internal nodes (gates/LUTs)
       else
       {
-        // 内部节点
-        std::vector<int> child_ids = node.child;
-        
-        // ⭐⭐⭐ 关键：反转子节点顺序，匹配mockturtle约定
-        std::reverse(child_ids.begin(), child_ids.end());
-
+        // Build fanins recursively
         std::vector<typename Ntk::signal> fanins;
-        fanins.reserve( child_ids.size() );
-        for ( auto child_id : child_ids )
+        fanins.reserve( node.child.size() );
+        
+        for ( auto child_id : node.child )
         {
-          auto child_sig = build( child_id );
-          if ( !child_sig )
+          auto child_signal = build( child_id );
+          if ( !child_signal )
           {
             return std::nullopt;
           }
-          fanins.push_back( *child_sig );
+          fanins.push_back( *child_signal );
         }
 
-        // 特殊处理NOT门
+        // Create the node based on its function
+        // node.func is a binary string representing the truth table
+        // For n inputs, func has 2^n bits
+        
         if ( node.func == "01" && fanins.size() == 1u )
         {
-          result = ntk.create_not( fanins.front() );
-          std::cout << "  NOT节点 " << id << " (func=" << node.func << ")\n";
+          // Special case: inverter
+          result = ntk.create_not( fanins[0] );
         }
         else
         {
-          // 创建LUT节点
-          kitty::dynamic_truth_table tt( node.child.size() );
-          for ( auto i = 0u; i < node.func.size(); ++i )
+          // General case: create LUT with truth table
+          const auto num_vars = node.child.size();
+          kitty::dynamic_truth_table tt( num_vars );
+          
+          // node.func is stored with LSB first (index 0)
+          // kitty expects bit 0 to be f(0,0,...,0)
+          for ( size_t i = 0; i < node.func.size(); ++i )
           {
             if ( node.func[i] == '1' )
             {
-              const auto bit_index = node.func.size() - 1 - i;
-              kitty::set_bit( tt, bit_index );
+              kitty::set_bit( tt, i );
             }
           }
-          result = ntk.create_node( fanins, tt );
-          created_nodes.push_back( result );
           
-          std::cout << "  LUT节点 " << id << " (func=" << node.func 
-                    << ", 输入数=" << fanins.size() << ")\n";
+          result = ntk.create_node( fanins, tt );
         }
       }
 
-      cache.emplace( id, result );
+      // Cache the result
+      cache[node_id] = result;
       return result;
     };
 
-    // 构建根节点
-    if ( auto root = build( decomposition->root_id ) )
+    // Build from the root node
+    auto root_signal = build( decomposition->root_id );
+    if ( root_signal )
     {
-      std::cout << "✅ 分解完成，共创建 " << created_nodes.size() << " 个子节点\n";
-      fn( *root );
+      fn( *root_signal );
     }
     else
     {
-      std::cout << "❌ 分解构建失败，使用原始LUT\n";
+      // Fallback: use original LUT if building failed
       fn( ntk.create_node( children, function ) );
     }
   }
