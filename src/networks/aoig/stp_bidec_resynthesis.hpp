@@ -49,21 +49,24 @@ public:
       return;
     }
 
-       // Map STP variable IDs to mockturtle signals
-    // STP uses 1-based indexing: variables [1, 2, 3, ..., n]
-    // In STP's truth table representation, variable 1 is MSB, variable n is LSB
-    // mockturtle children[0] is LSB (variable n), children[n-1] is MSB (variable 1)
+    // Map STP variable IDs to mockturtle signals
     std::unordered_map<int, typename Ntk::signal> var_to_signal;
     const auto n = children.size();
-    
-    for ( auto i = 0u; i < n; ++i )
-    {
 
-           // children[i] corresponds to STP variable (i + 1)
-      // children[0] -> variable 1 (LSB)
-      // children[n-1] -> variable n (MSB)
-      int stp_var_id = static_cast<int>( i + 1 );
-      var_to_signal[stp_var_id] = children[i];
+    if ( !decomposition->variable_order.empty() && decomposition->variable_order.size() == n )
+    {
+      for ( auto i = 0u; i < n; ++i )
+      {
+        var_to_signal[decomposition->variable_order[i]] = children[i];
+      }
+    }
+    else
+    {
+      for ( auto i = 0u; i < n; ++i )
+      {
+        int stp_var_id = static_cast<int>( i + 1 );
+        var_to_signal[stp_var_id] = children[i];
+      }
     }
 
     // Build lookup table for DSD nodes

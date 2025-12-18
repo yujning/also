@@ -7,6 +7,7 @@
 #include <kitty/dynamic_truth_table.hpp>
 #include <kitty/print.hpp>
 
+#include <algorithm>
 #include <optional>
 #include <numeric>
 
@@ -58,12 +59,14 @@ inline bool run_dsd_from_hex(const std::string& hex_truth_table)
         return false;
     }
 
-    kitty::dynamic_truth_table tt(num_vars);
-    kitty::create_from_hex_string(tt, hex);
+  kitty::dynamic_truth_table tt(num_vars);
+  kitty::create_from_hex_string(tt, hex);
 
-    std::ostringstream oss;
-    kitty::print_binary(tt, oss);
-    return run_dsd_recursive(oss.str());
+  std::ostringstream oss;
+  kitty::print_binary(tt, oss);
+  auto binary = oss.str();
+  std::reverse(binary.begin(), binary.end());
+  return run_dsd_recursive(binary);
 }
 
 /**
@@ -86,26 +89,30 @@ inline bool run_bidecomposition_from_binary(const std::string& binary_truth_tabl
  */
 inline bool run_bidecomposition(const kitty::dynamic_truth_table& tt)
 {
-    std::ostringstream oss;
-    kitty::print_binary(tt, oss);
-    return run_bi_decomp_recursive(oss.str());
+  std::ostringstream oss;
+  kitty::print_binary(tt, oss);
+  auto binary = oss.str();
+  std::reverse(binary.begin(), binary.end());
+  return run_bi_decomp_recursive(binary);
 }
 
 inline std::optional<bidecomposition_nodes> capture_bidecomposition(const kitty::dynamic_truth_table& tt)
 {
-    std::ostringstream oss;
-    kitty::print_binary(tt, oss);
+  std::ostringstream oss;
+  kitty::print_binary(tt, oss);
+  auto binary = oss.str();
+  std::reverse(binary.begin(), binary.end());
 
-    RESET_NODE_GLOBAL();
-    const auto prev_output = BD_MINIMAL_OUTPUT;
-    BD_MINIMAL_OUTPUT = true;
-    ENABLE_ELSE_DEC = true;
+  RESET_NODE_GLOBAL();
+  const auto prev_output = BD_MINIMAL_OUTPUT;
+  BD_MINIMAL_OUTPUT = true;
+  ENABLE_ELSE_DEC = true;
 
     const auto num_vars = tt.num_vars();
     ORIGINAL_VAR_COUNT = static_cast<int>(num_vars);
 
-    TT root;
-    root.f01 = oss.str();
+  TT root;
+  root.f01 = binary;
     root.order.resize(num_vars);
   // Use sequential ordering to match BENCH format convention
     // Position i corresponds to variable (i + 1)
@@ -142,9 +149,11 @@ inline std::optional<bidecomposition_nodes> capture_bidecomposition(const kitty:
  */
 inline bool run_dsd(const kitty::dynamic_truth_table& tt)
 {
-    std::ostringstream oss;
-    kitty::print_binary(tt, oss);
-    return run_dsd_recursive(oss.str());
+  std::ostringstream oss;
+  kitty::print_binary(tt, oss);
+  auto binary = oss.str();
+  std::reverse(binary.begin(), binary.end());
+  return run_dsd_recursive(binary);
 }
 
 } // namespace stp
