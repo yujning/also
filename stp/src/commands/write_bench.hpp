@@ -33,6 +33,7 @@ static std::string varname_from_id(int v)
 // ========================================================
 static std::string bin_to_hex(const std::string& bin)
 {
+    // `bin` is LSB-first (index 0 is minterm 0) as produced by STP
     std::string b = bin;
 
     while (b.size() % 4 != 0)

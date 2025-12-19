@@ -58,12 +58,12 @@ inline bool run_dsd_from_hex(const std::string& hex_truth_table)
         return false;
     }
 
-    kitty::dynamic_truth_table tt(num_vars);
-    kitty::create_from_hex_string(tt, hex);
+  kitty::dynamic_truth_table tt(num_vars);
+  kitty::create_from_hex_string(tt, hex);
 
-    std::ostringstream oss;
-    kitty::print_binary(tt, oss);
-    return run_dsd_recursive(oss.str());
+  std::ostringstream oss;
+  kitty::print_binary(tt, oss);
+  return run_dsd_recursive(oss.str());
 }
 
 /**
@@ -86,34 +86,32 @@ inline bool run_bidecomposition_from_binary(const std::string& binary_truth_tabl
  */
 inline bool run_bidecomposition(const kitty::dynamic_truth_table& tt)
 {
-    std::ostringstream oss;
-    kitty::print_binary(tt, oss);
-    return run_bi_decomp_recursive(oss.str());
+  std::ostringstream oss;
+  kitty::print_binary(tt, oss);
+  return run_bi_decomp_recursive(oss.str());
 }
 
 inline std::optional<bidecomposition_nodes> capture_bidecomposition(const kitty::dynamic_truth_table& tt)
 {
-    std::ostringstream oss;
-    kitty::print_binary(tt, oss);
+  std::ostringstream oss;
+  kitty::print_binary(tt, oss);
 
-    RESET_NODE_GLOBAL();
-    const auto prev_output = BD_MINIMAL_OUTPUT;
-    BD_MINIMAL_OUTPUT = true;
-    ENABLE_ELSE_DEC = true;
+  RESET_NODE_GLOBAL();
+  const auto prev_output = BD_MINIMAL_OUTPUT;
+  BD_MINIMAL_OUTPUT = true;
+  ENABLE_ELSE_DEC = true;
 
     const auto num_vars = tt.num_vars();
     ORIGINAL_VAR_COUNT = static_cast<int>(num_vars);
 
-    TT root;
-    root.f01 = oss.str();
-    root.order.resize(num_vars);
-  // Use sequential ordering to match BENCH format convention
-    // Position i corresponds to variable (i + 1)
-    // Variables go from 1 (LSB) to n (MSB)
-    for (size_t i = 0; i < num_vars; ++i)
-    {
-          root.order[i] = static_cast<int>(i + 1);
-    }
+  TT root;
+  root.f01 = oss.str();
+  root.order.resize(num_vars);
+  // Match STP default: position1 -> variable num_vars (MSB in BENCH), positionN -> variable1 (LSB)
+  for (size_t i = 0; i < num_vars; ++i)
+  {
+    root.order[i] = static_cast<int>(num_vars - i);
+  }
 
     for (int v = 1; v <= ORIGINAL_VAR_COUNT; ++v)
     {
@@ -142,9 +140,9 @@ inline std::optional<bidecomposition_nodes> capture_bidecomposition(const kitty:
  */
 inline bool run_dsd(const kitty::dynamic_truth_table& tt)
 {
-    std::ostringstream oss;
-    kitty::print_binary(tt, oss);
-    return run_dsd_recursive(oss.str());
+  std::ostringstream oss;
+  kitty::print_binary(tt, oss);
+  return run_dsd_recursive(oss.str());
 }
 
 } // namespace stp
