@@ -13,14 +13,14 @@
 #include <api/truth_table.hpp>
 
 #include <mockturtle/networks/klut.hpp>
-#include <mockturtle/views/topo_view.hpp>
+#include <mockturtle/networks/klut.hpp>
 
 #include <algorithm>
+
 #include <functional>
 #include <optional>
 #include <unordered_map>
 #include <vector>
-
 
 namespace also
 {
@@ -34,151 +34,124 @@ public:
                   LeavesIterator begin, LeavesIterator end, Fn&& fn ) const
   {
     std::vector<typename Ntk::signal> children( begin, end );
-      // Keep 2-input and below LUTs unchanged as requested
     if ( children.size() <= 2u )
     {
       fn( ntk.create_node( children, function ) );
       return;
     }
-      // Try STP bi-decomposition for 3+ input LUTs
+
     auto decomposition = stp::capture_bidecomposition( function );
     if ( !decomposition )
     {
-           // Decomposition failed, keep original LUT
-      fn( ntk.create_node( children, function ) );
       return;
     }
 
-       // Map STP variable IDs to mockturtle signals
-    // STP uses 1-based indexing: variables [1, 2, 3, ..., n]
-    // In STP's truth table representation, variable 1 is MSB, variable n is LSB
-    // mockturtle children[0] is LSB (variable n), children[n-1] is MSB (variable 1)
+    if ( decomposition->variable_order.size() > children.size() )
+    {
+      return;
+    }
+
+    // ⭐⭐⭐ 关键修改：反转映射，匹配 bd 的变量编号约定
     std::unordered_map<int, typename Ntk::signal> var_to_signal;
     const auto n = children.size();
-    
     for ( auto i = 0u; i < n; ++i )
     {
-
-           // children[i] corresponds to STP variable (i + 1)
-      // children[0] -> variable 1 (LSB)
-      // children[n-1] -> variable n (MSB)
-      int stp_var_id = static_cast<int>( i + 1 );
-      var_to_signal[stp_var_id] = children[i];
+      // children[0] 是最低位 → 对应 bd 中的变量 n
+      // children[n-1] 是最高位 → 对应 bd 中的变量 1
+      var_to_signal.emplace( static_cast<int>( n - i ), children[i] );
     }
+std::unordered_map<int, DSDNode> node_lookup;
+for ( auto const& node : decomposition->nodes )
+{
+   node_lookup.try_emplace( node.id, node );
+}
 
-    // Build lookup table for DSD nodes
-    std::unordered_map<int, DSDNode> node_lookup;
-    for ( auto const& node : decomposition->nodes )
+std::unordered_map<int, typename Ntk::signal> cache;
+
+std::function<std::optional<typename Ntk::signal>( int )> build = [&]( int id ) -> std::optional<typename Ntk::signal> {
+  if ( auto it = cache.find( id ); it != cache.end() )
+  {
+    return it->second;
+  }
+
+  auto node_it = node_lookup.find( id );
+  if ( node_it == node_lookup.end() )
+  {
+    return std::nullopt;
+  }
+
+  const auto& node = node_it->second;
+
+  typename Ntk::signal result{};
+
+  if ( node.func == "in" )
+  {
+    if ( auto it = var_to_signal.find( node.var_id ); it != var_to_signal.end() )
     {
-           node_lookup[node.id] = node;
+      result = it->second;
     }
-
-
-    // Cache for built signals to avoid rebuilding same nodes
-    std::unordered_map<int, typename Ntk::signal> cache;
-      // Recursive function to build network from DSD nodes
-    std::function<std::optional<typename Ntk::signal>( int )> build = 
-         [&]( int node_id ) -> std::optional<typename Ntk::signal> 
+    else
     {
-          // Check cache first
-      auto cache_it = cache.find( node_id );
-      if ( cache_it != cache.end() )
-      {
-             return cache_it->second;
-      }
-         // Find the node
-      auto node_it = node_lookup.find( node_id );
-      if ( node_it == node_lookup.end() )
-      {
-        return std::nullopt;
-      }
-
-      const auto& node = node_it->second;
-         typename Ntk::signal result;
-
-      // Handle input nodes
-      if ( node.func == "in" )
-      {
-               auto var_it = var_to_signal.find( node.var_id );
-        if ( var_it == var_to_signal.end() )
-        {
-          return std::nullopt;
-        }
-        result = var_it->second;
-      }
-      // Handle constant nodes
-            else if ( node.func == "0" )
+      return std::nullopt;
+    }
+  }
+      else if ( node.func == "0" )
       {
         result = ntk.get_constant( false );
-             }
+      }
       else if ( node.func == "1" )
       {
         result = ntk.get_constant( true );
-           }
-      // Handle internal nodes (gates/LUTs)
-      else
+      }
+     else
       {
-              // Build fanins recursively
-        std::vector<typename Ntk::signal> fanins;
-              fanins.reserve( node.child.size() );
+        std::vector<int> child_ids = node.child;
         
-        for ( auto child_id : node.child )
+        // ⭐⭐⭐ 关键：反转子节点顺序，匹配 mockturtle 约定
+        std::reverse(child_ids.begin(), child_ids.end());
+
+        std::vector<typename Ntk::signal> fanins;
+        fanins.reserve( child_ids.size() );
+        for ( auto child_id : child_ids )
         {
-                  auto child_signal = build( child_id );
-          if ( !child_signal )
+          auto child_sig = build( child_id );
+          if ( !child_sig )
           {
             return std::nullopt;
           }
-                   fanins.push_back( *child_signal );
+          fanins.push_back( *child_sig );
         }
-      // Create the node based on its function
-        // node.func is a binary string representing the truth table
-        // For n inputs, func has 2^n bits
-        
+
         if ( node.func == "01" && fanins.size() == 1u )
         {
-                 // Special case: inverter
-          result = ntk.create_not( fanins[0] );
+          result = ntk.create_not( fanins.front() );
         }
         else
         {
-                   // General case: create LUT with truth table
-          const auto num_vars = node.child.size();
-          kitty::dynamic_truth_table tt( num_vars );
-          
-          // node.func is stored with LSB first (index 0)
-          // kitty expects bit 0 to be f(0,0,...,0)
-          for ( size_t i = 0; i < node.func.size(); ++i )
+          kitty::dynamic_truth_table tt( node.child.size() );
+          for ( auto i = 0u; i < node.func.size(); ++i )
           {
             if ( node.func[i] == '1' )
             {
-              kitty::set_bit( tt, i );
+              const auto bit_index = node.func.size() - 1 - i;
+              kitty::set_bit( tt, bit_index );
             }
           }
-          
-          // STP stores children in the order they appear in node.child
-          // write_bench reverses them for BENCH output, so we should do the same
-          std::vector<typename Ntk::signal> reversed_fanins = fanins;
-          std::reverse( reversed_fanins.begin(), reversed_fanins.end() );
-                   result = ntk.create_node( reversed_fanins, tt );
+          result = ntk.create_node( fanins, tt );
         }
       }
-     // Cache the result
-      cache[node_id] = result;
+
+      cache.emplace( id, result );
       return result;
     };
-   // Build from the root node
-    auto root_signal = build( decomposition->root_id );
-    if ( root_signal )
-    {    fn( *root_signal );
-    }
-    else
-    {     // Fallback: use original LUT if building failed
-      fn( ntk.create_node( children, function ) );
+
+    if ( auto root = build( decomposition->root_id ) )
+    {
+      fn( *root );
     }
   }
 };
 
+} // namespace also
 
-}
 #endif

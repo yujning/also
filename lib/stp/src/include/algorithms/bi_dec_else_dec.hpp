@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <string>
+#include <algorithm>
 
 #include <kitty/dynamic_truth_table.hpp>
 #include <kitty/print.hpp>
@@ -18,7 +19,6 @@
 
 #include <mockturtle/networks/klut.hpp>
 #include <mockturtle/algorithms/node_resynthesis/exact.hpp>
-
 #include "stp_dsd.hpp"
 #include "node_global.hpp"   // new_node / new_in_node
 
@@ -31,6 +31,8 @@ int new_node(const std::string&, const std::vector<int>&);
 
 // 如果你已经有 build_small_tree(f) 就保留，否则你自己实现一个 fallback
 int build_small_tree(const TT& f);
+
+static int bi_decomp_recursive(const TT& f, int depth);
 
 
 
@@ -51,20 +53,30 @@ inline int else_decompose(
   {
     std::cout << "⚠️ depth " << depth
               << ": Shannon decomposition (n=" << n << ")\n";
+     std::cout << "f=" << f.f01 << "\n";
 
     if (orig_children.empty())
       throw std::runtime_error("else_decompose: no children for Shannon split");
 
     // 香农分解先以高位变量为轴（orig_children 最后一个变量）
     const auto pivot = orig_children.back();
-    std::vector<int> sub_children(orig_children.begin(), orig_children.end() - 1);
 
     const auto half_bits = bits / 2u;
     TT f_pos{ f.f01.substr(0, half_bits), {} };
     TT f_neg{ f.f01.substr(half_bits), {} };
 
-    const auto pos_node = else_decompose(f_pos, sub_children, depth + 1);
-    const auto neg_node = else_decompose(f_neg, sub_children, depth + 1);
+    if (!f.order.empty())
+    {
+      f_pos.order.assign(f.order.begin() + 1, f.order.end());
+      f_neg.order.assign(f.order.begin() + 1, f.order.end());
+    }
+
+        std::cout << "  split depth " << depth << " pos f=" << f_pos.f01 << "\n";
+    std::cout << "  split depth " << depth << " neg f=" << f_neg.f01 << "\n"
+              << std::flush;
+
+    const auto pos_node = bi_decomp_recursive(f_pos, depth + 1);
+    const auto neg_node = bi_decomp_recursive(f_neg, depth + 1);
 
     const auto pos_term = new_node("1000", { pivot, pos_node });
     const auto neg_term = new_node("0010", { pivot, neg_node });
@@ -141,8 +153,7 @@ inline int else_decompose(
       }
     });
 
-  if (childs.size() == 2)
-    std::swap(childs[0], childs[1]);
+  std::reverse(childs.begin(), childs.end());
 
   auto func = klut.node_function(n);
   std::string func_bin = kitty::to_binary(func);
@@ -153,7 +164,16 @@ inline int else_decompose(
 
   // 输出（只取第一个 PO）
   auto po_sig = klut.po_at(0);
-  auto root_id = node_map.at(klut.get_node(po_sig));
+  auto po_node = klut.get_node(po_sig);
+
+  if (klut.is_constant(po_node))
+  {
+    bool val = klut.constant_value(po_node);
+    if (klut.is_complemented(po_sig)) val = !val;
+    return new_node(val ? "1" : "0", {});
+  }
+
+  auto root_id = node_map.at(po_node);
   if (klut.is_complemented(po_sig))
     root_id = new_node("01", { root_id });
 
