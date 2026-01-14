@@ -31,11 +31,27 @@
 #include "../networks/img/img_all.hpp"
 #include "../core/misc.hpp"
 #include "../core/direct_mapping.hpp"
-
+#include "../core/flow_detail.hpp"
 
 #include "../networks/aoig/stp_bidec_resynthesis.hpp"
 namespace alice
 {
+    namespace detail
+  {
+    class klut_dec_resynthesis
+    {
+    public:
+      template<typename LeavesIterator, typename Fn>
+      void operator()( klut_network& ntk, kitty::dynamic_truth_table const& function, LeavesIterator begin, LeavesIterator end, Fn&& fn ) const
+      {
+        mockturtle::decomposition_flow_params ps;
+        const std::vector<klut_network::signal> leaves( begin, end );
+        const auto f = mockturtle::dsd_detail( ntk, function, leaves, ps );
+        fn( f );
+      }
+    };
+  }
+
 
   class lut_resyn_command: public command
   {
@@ -139,7 +155,9 @@ protected:
       // }
       else
       {
-         xmg = convert_klut_to_graph<xmg_network>( cur_klut );
+                detail::klut_dec_resynthesis resyn;
+        auto dec_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+        xmg = convert_klut_to_graph<xmg_network>( dec_klut );
 
       }
 

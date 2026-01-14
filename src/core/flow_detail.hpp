@@ -494,6 +494,8 @@ signal<Ntk> dsd_detail( Ntk& ntk, kitty::dynamic_truth_table const& remainder, s
   static_assert( has_create_xor_v<Ntk>, "Ntk does not implement the create_xor method" );
   static_assert( has_create_maj_v<Ntk>, "Ntk does not implement the create_maj method" );
   static_assert( has_create_ite_v<Ntk>, "Ntk does not implement the create_ite method" );
+    std::cout << "[DSD] enter dsd_detail, vars = "
+            << remainder.num_vars() << std::endl;
   detail::dsd_impl<Ntk> impl( ntk, remainder, children, ps );
   return impl.run();
 }

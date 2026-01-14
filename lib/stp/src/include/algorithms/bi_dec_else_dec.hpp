@@ -179,4 +179,3 @@ inline int else_decompose(
 
   return root_id;
 }
-
