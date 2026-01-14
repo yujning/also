@@ -10,6 +10,7 @@
 #include "node_global.hpp"
 #include "bi_dec_else_dec.hpp"
 #include "stp_dsd.hpp"
+#include "mix_dsd.hpp"
 
 using std::string;
 using std::vector;
@@ -1059,16 +1060,13 @@ static int bi_decomp_recursive(const TT& f, int depth = 0)
 // =====================================================
 inline bool run_bi_decomp_recursive(const std::string& binary01)
 {
-    bool enable_else_dec = ENABLE_ELSE_DEC;
-       bool enable_dsd_mix_fallback = BD_ENABLE_DSD_MIX_FALLBACK;
-   // RESET_NODE_GLOBAL();
-       bool prev_minimal_output = BD_MINIMAL_OUTPUT;
-    bool prev_only_k2_eq_0 = BD_ONLY_K2_EQ_0;
-      bool prev_dsd_mix_fallback = BD_ENABLE_DSD_MIX_FALLBACK;
+   const bool prev_enable_else_dec = ENABLE_ELSE_DEC;
+    const bool prev_minimal_output = BD_MINIMAL_OUTPUT;
+    const bool prev_only_k2_eq_0 = BD_ONLY_K2_EQ_0;
+    const bool prev_dsd_mix_fallback = BD_ENABLE_DSD_MIX_FALLBACK;
     RESET_NODE_GLOBAL();
-    ENABLE_ELSE_DEC = enable_else_dec;
-    BD_ENABLE_DSD_MIX_FALLBACK = enable_dsd_mix_fallback;
-        BD_MINIMAL_OUTPUT = true;
+    ENABLE_ELSE_DEC = true;
+    BD_MINIMAL_OUTPUT = true;
 
     if (!is_power_of_two(binary01.size())) {
         std::cout << "输入长度必须为 2^n\n";
@@ -1110,6 +1108,7 @@ inline bool run_bi_decomp_recursive(const std::string& binary01)
 
         if (root_id < 0)
     {
+        ENABLE_ELSE_DEC = prev_enable_else_dec;
         BD_MINIMAL_OUTPUT = prev_minimal_output;
         BD_ONLY_K2_EQ_0 = prev_only_k2_eq_0;
         BD_ENABLE_DSD_MIX_FALLBACK = prev_dsd_mix_fallback;
@@ -1150,6 +1149,6 @@ inline bool run_bi_decomp_recursive(const std::string& binary01)
 
     BD_MINIMAL_OUTPUT = prev_minimal_output;
     BD_ONLY_K2_EQ_0 = prev_only_k2_eq_0;
-       BD_ENABLE_DSD_MIX_FALLBACK = prev_dsd_mix_fallback;
+    BD_ENABLE_DSD_MIX_FALLBACK = prev_dsd_mix_fallback;
     return true;
 }

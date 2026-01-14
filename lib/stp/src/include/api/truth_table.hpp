@@ -10,8 +10,8 @@
 #include <optional>
 #include <numeric>
 
-#include "../algorithms/bi_decomposition.hpp"
-#include "../algorithms/stp_dsd.hpp"
+#include "../algorithmscopy/bi_decomposition.hpp"
+
 
 
 namespace stp

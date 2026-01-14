@@ -5,7 +5,7 @@ using std::vector;
 using std::set;
 using std::cout;
 using std::endl;
-
+#include "node_global.hpp"
 int run_dsd_recursive(const string& binary01, bool enable_else_dec = false);
 
 //-----------------------------------------
