@@ -101,6 +101,9 @@ NtkDest convert_klut_to_graph( NtkSrc const& ntk_src )
   shannon_resynthesis<NtkDest, decltype( fallback_npn )> fallback_shannon( threshold, &fallback_npn );
   dsd_resynthesis<NtkDest, decltype( fallback_shannon )> resyn( fallback_shannon );
   return node_resynthesis<NtkDest>( ntk_src, resyn );
+  // auto npn = detail::set_npn_resynthesis_fn<NtkDestBase>();
+  // return node_resynthesis<NtkDest>( ntk_src, npn );
+
 }
 
 /*! \brief Convert a k-LUT network into AIG, XAG, MIG or XMG (in-place)
@@ -126,6 +129,9 @@ void convert_klut_to_graph( NtkDest& ntk_dest, NtkSrc const& ntk_src )
   shannon_resynthesis<NtkDest, decltype( fallback_npn )> fallback_shannon( threshold, &fallback_npn );
   dsd_resynthesis<NtkDest, decltype( fallback_shannon )> resyn( fallback_shannon );
   node_resynthesis<NtkDest>( ntk_dest, ntk_src, resyn );
+    // auto npn = detail::set_npn_resynthesis_fn<NtkDestBase>();
+    // node_resynthesis<NtkDest>( ntk_dest, ntk_src, npn );
+
 }
 
 } // namespace mockturtle
