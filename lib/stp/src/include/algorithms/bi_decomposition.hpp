@@ -5,7 +5,7 @@
 #include <cmath>
 #include <set>
 #include <kitty/kitty.hpp>
-#include "excute.hpp"
+
 #include "reorder.hpp"
 #include "node_global.hpp"
 #include "bi_dec_else_dec.hpp"
@@ -37,26 +37,7 @@ struct BiDecompResult {
     TT psi_tt;
 };
 
-// 判断块是不是常数（全0或全1）
-static bool is_const_block(const string& s)
-{
-    if (s.empty()) return false;
-    char b0 = s[0];
-    for (char b : s)
-        if (b != b0) return false;
-    return true;
-}
 
-// 判断两块是否按位互补
-static bool is_complement_block(const string& a, const string& b)
-{
-    if (a.size() != b.size()) return false;
-    for (size_t i = 0; i < a.size(); ++i)
-    {
-        if (a[i] == b[i]) return false;       // 互补必须处处相反
-    }
-    return true;
-}
 
 // 打印结构矩阵（调试用，保持简单）
 static void print_structure_matrix(
@@ -93,27 +74,7 @@ static void print_structure_matrix(
 }
 
 
-static string reverse_bits(const string& s)
-{
-    string r = s;
-    std::reverse(r.begin(), r.end());
-    return r;
-}
 
-
-//kitty重排的真值表
-
-// =====================================================
-// ★ 使用交换矩阵 SWAP 实现变量重排：按 new_order = Γ + Θ + Λ
-// =====================================================
-// =====================================================
-// ⭐ 变量重排（使用交换矩阵链 W，满足 W · target = 标准顺序）
-// target = Γ,Θ,Λ 拼接成的序列，如 {3,4,1,2}
-// =====================================================
-// =====================================================
-// ★ 变量重排（索引映射版，替代冒泡 / SWAP / STP）
-// 接口保持不变！
-// =====================================================
 static string apply_variable_reordering_swap(
     const string& f01,
     int n,

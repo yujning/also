@@ -6,7 +6,7 @@ using namespace std;
 #include <algorithm>
 #include "node_global.hpp"
 
-#include "excute.hpp"
+
 #include "reorder.hpp"
 #include "dsd_else_dec.hpp"
 // ================================================
@@ -129,21 +129,7 @@ static kitty::dynamic_truth_table make_tt_from01(const string& f01)
     return tt;
 }
 
-// ================================================
-// get support bits （调试用，暂保留）
-// ================================================
-static vector<int> get_support_bits(const string& f01)
-{
-    auto tt = make_tt_from01(f01);
-    vector<int> supp;
 
-    for (int i = 0; i < tt.num_vars(); i++){
-        if (kitty::has_var(tt, i))
-            supp.push_back(i);
-        std::cout <<"i="<<i<<endl;
-    }
-    return supp;
-}
 
 // ================================================
 // shrink_to_support（按 support 缩减 TT）
@@ -352,19 +338,6 @@ static bool is_constant_block_full(const string& b)
 //       * 其它情况：返回 false（交给 STP 模板 run_case_once 处理）
 // =====================================================
 
-// =====================================================
-// 求解 s > 1 情况下的 u * MΨ = W
-// u ∈ {01(非),10(恒等)}
-// 优先取 u=01，因为你指定使用“非常数块反转”的 MΨ
-// =====================================================
-static string solve_u_Mpsi_eq_w(const string &W)
-{
-    // u = 01 → MΨ = NOT(W)
-    string notW = W;
-    for (char &c : notW) c = (c=='1'?'0':'1');
-
-    return notW;
-}
 
 
 static bool derive_block_semantics_general(

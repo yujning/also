@@ -75,6 +75,7 @@ namespace alice
         add_flag("--stp_dsd, -d","use strong dsd with strong_else_dec in stp") ;
         add_flag( "--aa", "convert klut to xag graph (no resynthesis)" );
         add_flag( "--mm", "convert klut to xmg graph (no resynthesis)" );
+        add_flag( "-l", "dec" );
       }
 
       rules validity_rules() const
@@ -172,7 +173,7 @@ protected:
       // }
       else
       {
-                detail::klut_dec_resynthesis resyn;
+        detail::klut_dec_resynthesis resyn;
         auto dec_klut = node_resynthesis<klut_network>( cur_klut, resyn );
         xmg = convert_klut_to_graph<xmg_network>( dec_klut );
 
@@ -184,6 +185,19 @@ protected:
         store<xmg_network>().current() = cleanup_dangling( xmg );
       }
     }
+    else if (is_set("l"))
+    {
+      detail::klut_dec_resynthesis resyn;
+      auto dec_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+
+      if ( is_set( "new_entry" ) )
+      {
+        store<klut_network>().extend();
+        store<klut_network>().current() = cleanup_dangling( dec_klut );
+      }
+      return;
+    }
+
     else if ( is_set( "xmg3" ) )
     {
       xmg_network xmg;
