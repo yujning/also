@@ -5,11 +5,8 @@ using std::vector;
 using std::set;
 using std::cout;
 using std::endl;
-
-
-#include "excute.hpp"   // generate_swap_vec / Vec_chain_multiply / Vec_semi_tensor_product
-
-bool run_dsd_recursive(const string& binary01);
+#include "node_global.hpp"
+int run_dsd_recursive(const string& binary01, bool enable_else_dec = false);
 
 //-----------------------------------------
 // 判断是否为 2 的幂
@@ -19,33 +16,21 @@ static inline bool is_power_of_two(size_t x){
 }
 
 //-----------------------------------------
-// 二进制串转为列向量
-//-----------------------------------------
-inline vector<stp_data> binary_to_vec(const string &bin)
-{
-    int rows = bin.size();
-    vector<stp_data> M(rows + 1);
-    M[0] = rows;
-    for (int i = 0; i < rows; ++i)
-        M[i + 1] = bin[i] - '0';
-    return M;
-}
-
-//-----------------------------------------
 // 块相关工具
 //-----------------------------------------
 static bool is_constant_block(const std::string& b){
-    return std::all_of(b.begin(), b.end(), [&](char c){ return c==b.front(); });
+    return std::all_of(b.begin(), b.end(),
+                       [&](char c){ return c == b.front(); });
 }
 
 static std::string complement_block(const std::string& b){
-    std::string r=b;
+    std::string r = b;
     for(char& c: r) c = (c=='0' ? '1' : '0');
     return r;
 }
 
 //-----------------------------------------
-// 定理 3.3 CASE 判断
+// 定理 3.3 CASE 判断（完全原样）
 //-----------------------------------------
 static int theorem33_case_id(const std::string& binary, int s){
     const int n = std::log2(binary.size());
@@ -75,20 +60,48 @@ static int theorem33_case_id(const std::string& binary, int s){
     return 0;
 }
 
-// -----------------------------------------
-//          重排主函数（核心功能）
-// -----------------------------------------
+// =====================================================
+// ★ 核心：变量索引 → 编码映射重排
+// new_order: 1-based, MSB -> LSB
+// =====================================================
+static inline string reorder_by_index_mapping(
+    const string& binary,
+    int n,
+    const vector<int>& new_order)
+{
+    string out(binary.size(), '0');
+
+    for (size_t new_idx = 0; new_idx < binary.size(); ++new_idx)
+    {
+        uint64_t old_idx = 0;
+
+        for (int i = 0; i < n; ++i)
+        {
+            int bit = (new_idx >> (n - 1 - i)) & 1;
+            int var = new_order[i];          // 1-based
+            int pos = var - 1;               // 原始 MSB 位置
+            old_idx |= (uint64_t(bit) << (n - 1 - pos));
+        }
+
+        out[new_idx] = binary[old_idx];
+    }
+
+    return out;
+}
+
+// =====================================================
+// 重排主函数（等价原 STP 版本）
+// =====================================================
 inline void all_reorders(const string &binary)
 {
     int len = binary.size();
     if(!is_power_of_two(len)){
-        std::cout<<"输入长度必须是 2 的整数次幂\n";
+        cout<<"输入长度必须是 2 的整数次幂\n";
         return;
     }
+
     int n = log2(len);
     int r = n / 2;
-
-    vector<stp_data> Mf = binary_to_vec(binary);
 
     for(int s=1; s<=r; ++s)
     {
@@ -100,24 +113,16 @@ inline void all_reorders(const string &binary)
             for(int i=0;i<n;i++)
                 if(v[i]) Lambda.push_back(i+1);
 
-            vector<vector<stp_data>> swap_chain;
+            // ===== 索引映射重排（Omega ⧺ Lambda）=====
+            vector<int> new_order;
+            vector<bool> inLam(n+1,false);
+            for(int j:Lambda) inLam[j]=true;
 
-            for(int k=s;k>=1;k--){
-                int j_k = Lambda[k-1];
-                int exp = j_k + (s-1) - k;
-                swap_chain.push_back(generate_swap_vec(2, pow(2,exp)));
-            }
-            swap_chain.push_back(generate_swap_vec(pow(2,n-s), pow(2,s)));
+            for(int j=1;j<=n;j++) if(!inLam[j]) new_order.push_back(j);
+            for(int j:Lambda) new_order.push_back(j);
 
-            vector<stp_data> Mperm =
-                Vec_chain_multiply(swap_chain,false);
-
-            vector<stp_data> result =
-                Vec_semi_tensor_product(Mf,Mperm);
-
-            string reordered;
-            for(size_t i=1;i<result.size();++i)
-                reordered.push_back(result[i]?'1':'0');
+            string reordered =
+                reorder_by_index_mapping(binary, n, new_order);
 
             int cid = theorem33_case_id(reordered, s);
             if(cid!=0){
@@ -126,12 +131,7 @@ inline void all_reorders(const string &binary)
                 for(int j : Lambda) cout<<j<<" ";
                 cout << "}  => reordered: " << reordered << "\n";
 
-                // 🔥🔥🔥 关键：直接做分解
-                run_dsd_recursive(reordered);
-
-                // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-                // 立即退出，不再继续重排//只要符合一个分解就直接退出
-                // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+                run_dsd_recursive(reordered, ENABLE_ELSE_DEC);
                 return;
             }
 
@@ -139,115 +139,4 @@ inline void all_reorders(const string &binary)
     }
 
     cout << "❌ 所有重排均未命中任何分解模式\n";
-}
-
-
-// //////////////做所有的重排情况,上面的是若有一个命中就退出
-// inline void all_reorders(const string &binary)
-// {
-//     int len = binary.size();
-//     if(!is_power_of_two(len)){
-//         std::cout<<"输入长度必须是 2 的整数次幂\n";
-//         return;
-//     }
-//     int n = log2(len);
-//     int r = n / 2;
-
-//     vector<stp_data> Mf = binary_to_vec(binary);
-
-//     for(int s=1; s<=r; ++s)
-//     {
-//         vector<bool> v(n);
-//         fill(v.begin(), v.begin()+s, true);
-
-//         do{
-//             vector<int> Lambda;
-//             for(int i=0;i<n;i++)
-//                 if(v[i]) Lambda.push_back(i+1);
-
-//             vector<vector<stp_data>> swap_chain;
-
-//             for(int k=s;k>=1;k--){
-//                 int j_k = Lambda[k-1];
-//                 int exp = j_k + (s-1) - k;
-//                 swap_chain.push_back(generate_swap_vec(2, pow(2,exp)));
-//             }
-//             swap_chain.push_back(generate_swap_vec(pow(2,n-s), pow(2,s)));
-
-//             vector<stp_data> Mperm = Vec_chain_multiply(swap_chain,false);
-//             vector<stp_data> result = Vec_semi_tensor_product(Mf,Mperm);
-
-//             string reordered;
-//             for(size_t i=1;i<result.size();++i)
-//                 reordered.push_back(result[i]?'1':'0');
-
-//             int cid = theorem33_case_id(reordered, s);
-//             if(cid!=0){
-//                 cout << "\n===== 重排命中：s="<<s<<" 情形("<<cid<<") =====\n";
-//                 cout << "Λ = { ";
-//                 for(int j : Lambda) cout<<j<<" ";
-//                 cout << "}  => reordered: " << reordered << "\n";
-
-//                 // 🔥🔥🔥 关键：继续做分解 !!! 🔥🔥🔥
-//                 run_dsd_recursive(reordered, s);
-//             }
-
-//         }while(prev_permutation(v.begin(),v.end()));
-//     }
-// }
-
-//==============================================================
-//    含 x / 多字符重排专用：不做分解、不做模式分析
-//==============================================================
-inline void all_reorders_char(const string &raw)
-{
-    int len = raw.size();
-    if(!is_power_of_two(len)){
-        cout << "输入长度必须是 2 的整数次幂（支持任意字符）\n";
-        return;
-    }
-
-    int n = log2(len);
-    int r = n / 2;
-
-    // 将任意字符按 ASCII 值存到 stp_data 中
-    vector<stp_data> Mf(len + 1);
-    Mf[0] = len;
-    for(int i=0; i<len; ++i)
-        Mf[i+1] = (unsigned char)raw[i];    // 保留字符，不做 0/1 转换
-
-    for(int s = 1; s <= r; ++s)
-    {
-        vector<bool> v(n);
-        fill(v.begin(), v.begin()+s, true);
-
-        do{
-            vector<int> Lambda;
-            for(int i=0;i<n;i++)
-                if(v[i]) Lambda.push_back(i+1);
-
-            vector<vector<stp_data>> swap_chain;
-
-            for(int k=s; k>=1; k--){
-                int j_k = Lambda[k-1];
-                int exp = j_k + (s-1) - k;
-                swap_chain.push_back(generate_swap_vec(2, pow(2,exp)));
-            }
-            swap_chain.push_back(generate_swap_vec(pow(2,n-s), pow(2,s)));
-
-            vector<stp_data> Mperm = Vec_chain_multiply(swap_chain,false);
-            vector<stp_data> result = Vec_semi_tensor_product(Mf, Mperm);
-
-            // 把 stp_data 还原为字符
-            string reordered;
-            reordered.reserve(len);
-            for(int i=1; i<=len; ++i)
-                reordered.push_back(char(result[i]));
-
-            cout << "Λ = { ";
-            for(int j : Lambda) cout << j << " ";
-            cout << "}  => reordered: " << reordered << "\n";
-
-        }while(prev_permutation(v.begin(), v.end()));
-    }
 }

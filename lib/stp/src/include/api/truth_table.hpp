@@ -10,7 +10,7 @@
 #include <optional>
 #include <numeric>
 
-#include "../algorithmscopy/bi_decomposition.hpp"
+#include "../algorithms/bi_decomposition.hpp"
 
 
 
