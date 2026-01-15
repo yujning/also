@@ -2,22 +2,27 @@
  * Copyright (C) 2019- Ningbo University, Ningbo, China */
 
 /**
- * @file stp_bidec_resynthesis.hpp
+ * @file stp_dsd_resynthesis.hpp
  *
- * @brief Resynthesize KLUTs using STP bi-decomposition into 2-LUT structures.
+ * @brief Resynthesize KLUTs using STP strong DSD into 2-LUT structures.
  */
 
-#ifndef STP_BIDEC_RESYNTHESIS_HPP
-#define STP_BIDEC_RESYNTHESIS_HPP
+#ifndef STP_DSD_RESYNTHESIS_HPP
+#define STP_DSD_RESYNTHESIS_HPP
 
 #include <api/truth_table.hpp>
 
-#include <mockturtle/networks/klut.hpp>
+#include <algorithms/strong_dsd.hpp>
+
 #include <mockturtle/networks/klut.hpp>
 
 #include <algorithm>
 
+#include <numeric>
+#include <sstream>
+
 #include <functional>
+#include <iostream>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -25,16 +30,61 @@
 namespace also
 {
 
+struct strong_dsd_nodes
+{
+  int root_id{0};
+  std::vector<DSDNode> nodes;
+};
+
+inline std::optional<strong_dsd_nodes> capture_strong_dsd( kitty::dynamic_truth_table const& tt )
+{
+  std::ostringstream oss;
+  kitty::print_binary( tt, oss );
+
+  RESET_NODE_GLOBAL();
+
+  const auto prev_output = STRONG_DSD_DEBUG_PRINT;
+  const auto prev_else_dec = ENABLE_ELSE_DEC;
+
+  STRONG_DSD_DEBUG_PRINT = false;
+  ENABLE_ELSE_DEC = true;
+
+  const auto num_vars = tt.num_vars();
+  ORIGINAL_VAR_COUNT = static_cast<int>( num_vars );
+
+  std::vector<int> order( num_vars );
+  std::iota( order.begin(), order.end(), 1 );
+
+  for ( int v = 1; v <= ORIGINAL_VAR_COUNT; ++v )
+  {
+    new_in_node( v );
+  }
+
+  const auto root_id = build_strong_dsd_nodes( oss.str(), order, 0 );
+
+  strong_dsd_nodes result{ root_id, NODE_LIST };
+
+  STRONG_DSD_DEBUG_PRINT = prev_output;
+  ENABLE_ELSE_DEC = prev_else_dec;
+
+  if ( root_id <= 0 )
+  {
+    return std::nullopt;
+  }
+
+  return result;
+}
+
 template<class Ntk>
-class stp_bidec_lut_resynthesis
+class stp_dsd_lut_resynthesis
 {
 public:
   template<typename LeavesIterator, typename Fn>
-  void operator()( Ntk& ntk, kitty::dynamic_truth_table const& function, 
+  void operator()( Ntk& ntk, kitty::dynamic_truth_table const& function,
                   LeavesIterator begin, LeavesIterator end, Fn&& fn ) const
   {
     std::vector<typename Ntk::signal> children( begin, end );
-    std::cout << "[stp_bd] klut truth table = ";
+    std::cout << "[stp_dsd] klut truth table = ";
     kitty::print_binary( function, std::cout );
     std::cout << "\n";
     if ( children.size() <= 2u )
@@ -43,13 +93,8 @@ public:
       return;
     }
 
-    auto decomposition = stp::capture_bidecomposition( function );
+    auto decomposition = capture_strong_dsd( function );
     if ( !decomposition )
-    {
-      return;
-    }
-
-    if ( decomposition->variable_order.size() > children.size() )
     {
       return;
     }
@@ -63,41 +108,43 @@ public:
       // children[n-1] 是最高位 → 对应 bd 中的变量 1
       var_to_signal.emplace( static_cast<int>( n - i ), children[i] );
     }
-std::unordered_map<int, DSDNode> node_lookup;
-for ( auto const& node : decomposition->nodes )
-{
-   node_lookup.try_emplace( node.id, node );
-}
 
-std::unordered_map<int, typename Ntk::signal> cache;
-
-std::function<std::optional<typename Ntk::signal>( int )> build = [&]( int id ) -> std::optional<typename Ntk::signal> {
-  if ( auto it = cache.find( id ); it != cache.end() )
-  {
-    return it->second;
-  }
-
-  auto node_it = node_lookup.find( id );
-  if ( node_it == node_lookup.end() )
-  {
-    return std::nullopt;
-  }
-
-  const auto& node = node_it->second;
-
-  typename Ntk::signal result{};
-
-  if ( node.func == "in" )
-  {
-    if ( auto it = var_to_signal.find( node.var_id ); it != var_to_signal.end() )
+    std::unordered_map<int, DSDNode> node_lookup;
+    for ( auto const& node : decomposition->nodes )
     {
-      result = it->second;
+      node_lookup.try_emplace( node.id, node );
     }
-    else
-    {
-      return std::nullopt;
-    }
-  }
+
+    std::unordered_map<int, typename Ntk::signal> cache;
+
+    std::function<std::optional<typename Ntk::signal>( int )> build =
+        [&]( int id ) -> std::optional<typename Ntk::signal> {
+      if ( auto it = cache.find( id ); it != cache.end() )
+      {
+        return it->second;
+      }
+
+      auto node_it = node_lookup.find( id );
+      if ( node_it == node_lookup.end() )
+      {
+        return std::nullopt;
+      }
+
+      const auto& node = node_it->second;
+
+      typename Ntk::signal result{};
+
+      if ( node.func == "in" )
+      {
+        if ( auto it = var_to_signal.find( node.var_id ); it != var_to_signal.end() )
+        {
+          result = it->second;
+        }
+        else
+        {
+          return std::nullopt;
+        }
+      }
       else if ( node.func == "0" )
       {
         result = ntk.get_constant( false );
@@ -106,12 +153,12 @@ std::function<std::optional<typename Ntk::signal>( int )> build = [&]( int id ) 
       {
         result = ntk.get_constant( true );
       }
-     else
+      else
       {
         std::vector<int> child_ids = node.child;
-        
+
         // ⭐⭐⭐ 关键：反转子节点顺序，匹配 mockturtle 约定
-        std::reverse(child_ids.begin(), child_ids.end());
+        std::reverse( child_ids.begin(), child_ids.end() );
 
         std::vector<typename Ntk::signal> fanins;
         fanins.reserve( child_ids.size() );

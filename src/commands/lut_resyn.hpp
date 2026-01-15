@@ -34,6 +34,7 @@
 #include "../core/flow_detail.hpp"
 
 #include "../networks/aoig/stp_bidec_resynthesis.hpp"
+#include "../networks/aoig/stp_dsd_resynthesis.hpp"
 namespace alice
 {
     namespace detail
@@ -70,7 +71,8 @@ namespace alice
         add_flag( "--xag, -g",  "using xag as target logic network" );
         add_flag( "--new_entry, -n", "adds new store entry" );
         add_flag( "--enable_direct_mapping, -e", "enable aig to xmg by direct mapping for comparison" );
-        add_flag("--stp_bd, -d","use bi_decomposition to run stp for dsd ") ;
+        add_flag("--stp_bd, -b","use bi_decomposition to run stp for dsd ") ;
+        add_flag("--stp_dsd, -d","use strong dsd with strong_else_dec in stp") ;
         add_flag( "--aa", "convert klut to xag graph (no resynthesis)" );
         add_flag( "--mm", "convert klut to xmg graph (no resynthesis)" );
       }
@@ -89,8 +91,23 @@ protected:
      * ============================================================ */
     klut_network cur_klut = store<klut_network>().current();
 
+    /* 2. stp-based strong dsd (-d)
+     *    pre-processing stage
+     * ============================================================ */
+    if ( is_set( "stp_dsd" ) )
+    {
+      also::stp_dsd_lut_resynthesis<klut_network> resyn;
+      cur_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+
+      if ( is_set( "new_entry" ) )
+      {
+        store<klut_network>().extend();
+        store<klut_network>().current() = cleanup_dangling( cur_klut );
+      }
+    }
+
     /* ============================================================
-     * 2. stp-based bi-decomposition (-d)
+     * 3. stp-based bi-decomposition (-b)
      *    pre-processing stage
      * ============================================================ */
     if ( is_set( "stp_bd" ) )
@@ -106,7 +123,7 @@ protected:
     }
 
     /* ============================================================
-     * 3. convert klut -> xag (--gg)
+     * 4. convert klut -> xag (--gg)
      *    NOTE: NO resynthesis
      * ============================================================ */
     if ( is_set( "aa" ) )
@@ -134,7 +151,7 @@ protected:
     }
 
     /* ============================================================
-     * 4. original target network selection (unchanged semantics)
+     * 5. original target network selection (unchanged semantics)
      * ============================================================ */
 
     if ( is_set( "xmg" ) )

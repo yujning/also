@@ -448,72 +448,34 @@ inline int build_strong_dsd_nodes_impl(
     const std::vector<int>* local_to_global,
     const std::unordered_map<int, int>* placeholder_nodes)
 {
-    // 入口：打印当前 TT + order
+    // =====================================================
+    // Entry
+    // =====================================================
     print_tt_with_order("进入 Strong DSD", mf, order, depth);
 
     const int n = static_cast<int>(order.size());
 
-    // =========================================================
-    // ✅ 关键：-e 开启时，3~4 输入子函数强制用 EXACT 2-LUT refine
-    // 这样永远不会留下 3-input/4-input LUT（比如 0x83）
-    // =========================================================
-    if (ENABLE_ELSE_DEC && n >= 3 && n <= 4)
-    {
-        std::string indent((size_t)depth * 2, ' ');
-        std::cout << indent
-                  << "⚠️ Strong: force EXACT 2-LUT refine (n=" << n << ")\n";
-
-        int pivot_node = -1;
-                if (!order.empty())
-                {
-                    auto children = make_children_from_order_with_placeholder(
-                        order, placeholder_nodes, local_to_global);
-                    if (!children.empty())
-                        pivot_node = children.front();
-                }
-
-       
-        // 并返回由 2-LUT 组成的网络（不会产生 3-input 节点）
-       // strong_else_decompose 在 n<=4 时走 placeholder-aware exact 2-LUT
-        return strong_else_decompose(
-            mf,
-            order,
-            depth,
-            pivot_node,
-            local_to_global,
-            placeholder_nodes,
-            build_strong_dsd_nodes_impl);
-    }
-
-    // =========================================================
-    // 原来的终止：2 输入及以下直接落地
-    // =========================================================
+    // =====================================================
+    // (1) Leaf: 真值表最小（≤ 2-input）
+    // =====================================================
     if (mf.size() <= 4)
     {
         print_tt_with_order("⏹ Stop (size <= 4)", mf, order, depth);
-        auto children = make_children_from_order_with_placeholder(
-            order, placeholder_nodes, local_to_global);
-        return new_node(mf, children);
-    }
 
-    // ① subset-enum split
-    StrongDsdSplit split = run_strong_dsd_by_mx_subset(mf, order, depth);
-
-    if (!split.found)
-    {
-        std::string indent((size_t)depth * 2, ' ');
-        std::cout << indent << "❌ Strong DSD: no valid split\n";
-
-        // ===============================
-        // 🔥 -e：n>4 做 Shannon 一层，然后回到 strong 主线
-        // ===============================
-        if (ENABLE_ELSE_DEC && n > 4)
+        // 仅在这里才允许 exact（-e）
+        if (ENABLE_ELSE_DEC && n >= 3)
         {
-            // pivot = 当前 order 的 MSB 对应的输入节点
-            int pivot_node =
-                make_children_from_order_with_placeholder(
-                    order, placeholder_nodes, local_to_global
-                )[0];
+            std::string indent((size_t)depth * 2, ' ');
+            std::cout << indent
+                      << "⚠️ Leaf exact 2-LUT (n=" << n << ")\n";
+
+            int pivot_node = -1;
+            if (!order.empty())
+            {
+                auto ch = make_children_from_order_with_placeholder(
+                    order, placeholder_nodes, local_to_global);
+                if (!ch.empty()) pivot_node = ch.front();
+            }
 
             return strong_else_decompose(
                 mf,
@@ -522,21 +484,59 @@ inline int build_strong_dsd_nodes_impl(
                 pivot_node,
                 local_to_global,
                 placeholder_nodes,
-                build_strong_dsd_nodes_impl
-            );
+                build_strong_dsd_nodes_impl);
         }
 
-        // ===============================
-        // ❌ 没开 -e：才退化成叶子 LUT（可能是 3/4 输入）
-        // ===============================
+        // 不开 -e 或 n<=2：直接落地
         auto children = make_children_from_order_with_placeholder(
             order, placeholder_nodes, local_to_global);
         return new_node(mf, children);
     }
 
-    // ---------------------------------------------------------
-    // split found：正常 strong DSD 递归
-    // ---------------------------------------------------------
+    // =====================================================
+    // (2) 核心：先尝试 Strong DSD split
+    // =====================================================
+    StrongDsdSplit split = run_strong_dsd_by_mx_subset(mf, order, depth);
+
+    if (!split.found)
+    {
+        std::string indent((size_t)depth * 2, ' ');
+        std::cout << indent << "❌ Strong DSD: no valid split\n";
+
+        // =================================================
+        // (3) Strong 失败：fallback
+        // =================================================
+        if (ENABLE_ELSE_DEC && n > 4)
+        {
+            // 只做一层 Shannon，然后回 strong 主线
+            int pivot_node =
+                make_children_from_order_with_placeholder(
+                    order, placeholder_nodes, local_to_global
+                )[0];
+
+            std::cout << indent
+                      << "⚠️ Fallback: Shannon ONE layer (n=" << n << ")\n";
+
+            return strong_else_decompose(
+                mf,
+                order,
+                depth,
+                pivot_node,
+                local_to_global,
+                placeholder_nodes,
+                build_strong_dsd_nodes_impl);
+        }
+
+        // n<=4 且 strong 失败：
+        // -e 已在 leaf 处理
+        auto children = make_children_from_order_with_placeholder(
+            order, placeholder_nodes, local_to_global);
+        return new_node(mf, children);
+    }
+
+    // =====================================================
+    // (4) Strong split found：正常递归
+    // =====================================================
     const auto& result = split.dsd;
 
     {
@@ -554,7 +554,7 @@ inline int build_strong_dsd_nodes_impl(
         std::cout << "}\n";
     }
 
-    // ===== recurse on My =====
+    // -------- recurse My --------
     const std::vector<int>& order_my = split.my_vars_msb2lsb;
     print_tt_with_order("递归进入 My", result.My, order_my, depth);
 
@@ -563,10 +563,9 @@ inline int build_strong_dsd_nodes_impl(
         order_my,
         depth + 1,
         local_to_global,
-        placeholder_nodes
-    );
+        placeholder_nodes);
 
-    // ===== recurse on Mx =====
+    // -------- recurse Mx --------
     int k = (int)split.mx_vars_msb2lsb.size();
     int my_local_id = k + 1;
 
@@ -590,14 +589,10 @@ inline int build_strong_dsd_nodes_impl(
 
         auto it = parent_ph.find(old_id);
         if (it != parent_ph.end())
-        {
             placeholder_nodes_mx[new_id] = it->second;
-        }
         else
-        {
             local_to_global_mx[new_id] =
                 resolve_global_var_id(old_id, local_to_global);
-        }
     }
 
     print_tt_with_order("递归进入 Mx", result.Mx, order_mx, depth);
@@ -607,9 +602,10 @@ inline int build_strong_dsd_nodes_impl(
         order_mx,
         depth + 1,
         &local_to_global_mx,
-        &placeholder_nodes_mx
-    );
+        &placeholder_nodes_mx);
 }
+
+
 inline bool strong_is_non_2input_node(int node_id)
 {
     if (node_id <= 0) return false;
@@ -759,25 +755,62 @@ inline void post_decompose_all_large_nodes_fixpoint()
 
             int old_id = nd.id;
 
-            std::cout << "  🔍 Found >2-input node: id=" << old_id
-                      << " fanin=" << nd.child.size()
-                      << " func=" << nd.func << "\n";
+            // =====================================================
+            // 🔑 关键：跳过已经“脱网”的节点
+            // =====================================================
+            bool referenced = (ROOT_NODE_ID == old_id);
 
-            // 👉 你定义的“其他分解操作”
+            if (!referenced)
+            {
+                for (const auto& n2 : NODE_LIST)
+                {
+                    for (int c : n2.child)
+                    {
+                        if (c == old_id)
+                        {
+                            referenced = true;
+                            break;
+                        }
+                    }
+                    if (referenced) break;
+                }
+            }
+
+            if (!referenced)
+                continue;
+            // =====================================================
+
+            std::cout << "  🔍 Found >2-input node: id=" << old_id
+                    << " fanin=" << nd.child.size()
+                    << " func=" << nd.func << "\n";
+
             int new_id = strong_refine_non_2input_node(old_id);
 
             if (new_id != old_id)
             {
                 std::cout << "  ✂️ Refined node " << old_id
-                          << " -> " << new_id << "\n";
+                        << " -> " << new_id << "\n";
 
-                strong_replace_node_everywhere(old_id, new_id);
+                                strong_replace_node_everywhere(old_id, new_id);
 
-                // 🔴 非常重要：
-                // 网络结构已经变了，立刻退出本轮，重新扫描
+                // =====================================================
+                // 🔥 关键：从 NODE_LIST 中物理删除 old 节点
+                // =====================================================
+                for (size_t k = 0; k < NODE_LIST.size(); ++k)
+                {
+                    if (NODE_LIST[k].id == old_id)
+                    {
+                        NODE_LIST.erase(NODE_LIST.begin() + k);
+                        break;
+                    }
+                }
+                // =====================================================
+
                 changed = true;
                 break;
             }
+
+
         }
     }
 
