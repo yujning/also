@@ -35,6 +35,7 @@
 
 #include "../networks/aoig/stp_bidec_resynthesis.hpp"
 #include "../networks/aoig/stp_dsd_resynthesis.hpp"
+#include "../networks/aoig/stp_mix_dsd_resynthesis.hpp"
 namespace alice
 {
     namespace detail
@@ -75,7 +76,8 @@ namespace alice
         add_flag("--stp_dsd, -d","use strong dsd with strong_else_dec in stp") ;
         add_flag( "--aa", "convert klut to xag graph (no resynthesis)" );
         add_flag( "--mm", "convert klut to xmg graph (no resynthesis)" );
-        add_flag( "-l", "dec" );
+        add_flag( "--dec, -l", "dec" );
+        add_flag( "--mix", "use mix dsd (mix_else_dec disabled by default)" );
       }
 
       rules validity_rules() const
@@ -92,6 +94,22 @@ protected:
      * ============================================================ */
     klut_network cur_klut = store<klut_network>().current();
 
+      /* 2. stp-based mix dsd (--mix)
+     *    pre-processing stage
+     * ============================================================ */
+    if ( is_set( "mix" ) )
+    {
+      also::stp_mix_dsd_lut_resynthesis<klut_network> resyn;
+      cur_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+
+      if ( is_set( "new_entry" ) )
+      {
+        store<klut_network>().extend();
+        store<klut_network>().current() = cleanup_dangling( cur_klut );
+      }
+    }
+
+
     /* 2. stp-based strong dsd (-d)
      *    pre-processing stage
      * ============================================================ */
@@ -105,6 +123,8 @@ protected:
         store<klut_network>().extend();
         store<klut_network>().current() = cleanup_dangling( cur_klut );
       }
+
+      return;
     }
 
     /* ============================================================
@@ -155,6 +175,19 @@ protected:
      * 5. original target network selection (unchanged semantics)
      * ============================================================ */
 
+    if ( is_set( "dec" ) || is_set( "l" ) )
+    {
+      detail::klut_dec_resynthesis resyn;
+      auto dec_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+
+      if ( is_set( "new_entry" ) )
+      {
+        store<klut_network>().extend();
+        store<klut_network>().current() = cleanup_dangling( dec_klut );
+      }
+      return;
+    }
+
     if ( is_set( "xmg" ) )
     {
       xmg_network xmg;
@@ -185,18 +218,7 @@ protected:
         store<xmg_network>().current() = cleanup_dangling( xmg );
       }
     }
-    else if (is_set("l"))
-    {
-      detail::klut_dec_resynthesis resyn;
-      auto dec_klut = node_resynthesis<klut_network>( cur_klut, resyn );
 
-      if ( is_set( "new_entry" ) )
-      {
-        store<klut_network>().extend();
-        store<klut_network>().current() = cleanup_dangling( dec_klut );
-      }
-      return;
-    }
 
     else if ( is_set( "xmg3" ) )
     {

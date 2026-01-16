@@ -2,69 +2,49 @@
  * Copyright (C) 2019- Ningbo University, Ningbo, China */
 
 /**
- * @file stp_dsd_resynthesis.hpp
+ * @file stp_mix_dsd_resynthesis.hpp
  *
- * @brief Resynthesize KLUTs using STP strong DSD into 2-LUT structures.
+ * @brief Resynthesize KLUTs using STP mix DSD into 2-LUT structures.
  */
 
-#ifndef STP_DSD_RESYNTHESIS_HPP
-#define STP_DSD_RESYNTHESIS_HPP
+#ifndef STP_MIX_DSD_RESYNTHESIS_HPP
+#define STP_MIX_DSD_RESYNTHESIS_HPP
 
 #include <api/truth_table.hpp>
 
-#include <algorithms/strong_dsd.hpp>
+#include <algorithms/mix_dsd.hpp>
 
 #include <mockturtle/networks/klut.hpp>
 
 #include <algorithm>
 
-#include <numeric>
-#include <sstream>
-
 #include <functional>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
 namespace also
 {
 
-struct strong_dsd_nodes
+struct mix_dsd_nodes
 {
   int root_id{0};
   std::vector<DSDNode> nodes;
 };
 
-inline std::optional<strong_dsd_nodes> capture_strong_dsd( kitty::dynamic_truth_table const& tt )
+inline std::optional<mix_dsd_nodes> capture_mix_dsd( kitty::dynamic_truth_table const& tt )
 {
   std::ostringstream oss;
   kitty::print_binary( tt, oss );
 
-  RESET_NODE_GLOBAL();
-
-  const auto prev_output = STRONG_DSD_DEBUG_PRINT;
   const auto prev_else_dec = ENABLE_ELSE_DEC;
-
-  STRONG_DSD_DEBUG_PRINT = false;
   ENABLE_ELSE_DEC = false;
 
-  const auto num_vars = tt.num_vars();
-  ORIGINAL_VAR_COUNT = static_cast<int>( num_vars );
+  const auto root_id = run_dsd_recursive_mix( oss.str() );
+  mix_dsd_nodes result{ root_id, NODE_LIST };
 
-  std::vector<int> order( num_vars );
-  std::iota( order.begin(), order.end(), 1 );
-
-  for ( int v = 1; v <= ORIGINAL_VAR_COUNT; ++v )
-  {
-    new_in_node( v );
-  }
-
-  const auto root_id = build_strong_dsd_nodes( oss.str(), order, 0 );
-
-  strong_dsd_nodes result{ root_id, NODE_LIST };
-
-  STRONG_DSD_DEBUG_PRINT = prev_output;
   ENABLE_ELSE_DEC = prev_else_dec;
 
   if ( root_id <= 0 )
@@ -76,7 +56,7 @@ inline std::optional<strong_dsd_nodes> capture_strong_dsd( kitty::dynamic_truth_
 }
 
 template<class Ntk>
-class stp_dsd_lut_resynthesis
+class stp_mix_dsd_lut_resynthesis
 {
 public:
   template<typename LeavesIterator, typename Fn>
@@ -84,7 +64,7 @@ public:
                   LeavesIterator begin, LeavesIterator end, Fn&& fn ) const
   {
     std::vector<typename Ntk::signal> children( begin, end );
-    std::cout << "[stp_dsd] klut truth table = ";
+    std::cout << "[stp_mix_dsd] klut truth table = ";
     kitty::print_binary( function, std::cout );
     std::cout << "\n";
     if ( children.size() <= 2u )
@@ -93,19 +73,16 @@ public:
       return;
     }
 
-    auto decomposition = capture_strong_dsd( function );
+    auto decomposition = capture_mix_dsd( function );
     if ( !decomposition )
     {
       return;
     }
 
-    // ⭐⭐⭐ 关键修改：反转映射，匹配 bd 的变量编号约定
     std::unordered_map<int, typename Ntk::signal> var_to_signal;
     const auto n = children.size();
     for ( auto i = 0u; i < n; ++i )
     {
-      // children[0] 是最低位 → 对应 bd 中的变量 n
-      // children[n-1] 是最高位 → 对应 bd 中的变量 1
       var_to_signal.emplace( static_cast<int>( n - i ), children[i] );
     }
 
@@ -156,8 +133,6 @@ public:
       else
       {
         std::vector<int> child_ids = node.child;
-
-        // ⭐⭐⭐ 关键：反转子节点顺序，匹配 mockturtle 约定
         std::reverse( child_ids.begin(), child_ids.end() );
 
         std::vector<typename Ntk::signal> fanins;
