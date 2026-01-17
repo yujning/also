@@ -41,7 +41,7 @@ struct decomposition_flow_params
   bool allow_m3aj = true;
   bool allow_mux = true;
   bool allow_s = false;
-  bool allow_n = false;
+  bool allow_n = true;
 };
 
 /* create truth table from hex  */

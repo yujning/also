@@ -124,7 +124,7 @@ protected:
         store<klut_network>().current() = cleanup_dangling( cur_klut );
       }
 
-      return;
+    
     }
 
     /* ============================================================
