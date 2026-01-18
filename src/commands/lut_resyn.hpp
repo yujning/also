@@ -97,7 +97,7 @@ protected:
       /* 2. stp-based mix dsd (--mix)
      *    pre-processing stage
      * ============================================================ */
-    if ( is_set( "mix" ) )
+    if ( is_set( "mix" ) )//不等价
     {
       also::stp_mix_dsd_lut_resynthesis<klut_network> resyn;
       cur_klut = node_resynthesis<klut_network>( cur_klut, resyn );
