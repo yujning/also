@@ -11,10 +11,7 @@
 #include "strong_else_dec.hpp"
 #include "node_global.hpp"
 
-// =====================================================
-// Debug switch
-// =====================================================
-inline bool STRONG_DSD_DEBUG_PRINT = false;
+
 
 // =====================================================
 // Pretty print: TT + order (must be paired)

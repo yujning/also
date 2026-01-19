@@ -47,7 +47,7 @@ inline std::optional<strong_dsd_nodes> capture_strong_dsd( kitty::dynamic_truth_
   const auto prev_else_dec = ENABLE_ELSE_DEC;
 
   STRONG_DSD_DEBUG_PRINT = false;
-  ENABLE_ELSE_DEC = false;
+  ENABLE_ELSE_DEC = true;
 
   const auto num_vars = tt.num_vars();
   ORIGINAL_VAR_COUNT = static_cast<int>( num_vars );

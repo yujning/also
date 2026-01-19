@@ -18,7 +18,7 @@ int new_in_node(int var_id);
 // C++17 允许 inline 全局变量，只需定义一次即可，全工程自动共享
 inline int NODE_ID = 1;
 inline int STEP_ID = 1;
-
+inline bool STRONG_DSD_DEBUG_PRINT = false;
 inline bool ENABLE_ELSE_DEC = false;
 
 inline int ORIGINAL_VAR_COUNT = 0;
