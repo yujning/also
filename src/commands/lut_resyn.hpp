@@ -32,7 +32,9 @@
 #include "../core/misc.hpp"
 #include "../core/direct_mapping.hpp"
 #include "../core/flow_detail.hpp"
+#include <mockturtle/utils/stopwatch.hpp>
 
+#include <iostream>
 #include "../networks/aoig/stp_bidec_resynthesis.hpp"
 #include "../networks/aoig/stp_dsd_resynthesis.hpp"
 #include "../networks/aoig/stp_mix_dsd_resynthesis.hpp"
@@ -100,7 +102,11 @@ protected:
     if ( is_set( "mix" ) )//不等价
     {
       also::stp_mix_dsd_lut_resynthesis<klut_network> resyn;
-      cur_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+          mockturtle::stopwatch<>::duration time{0};
+      mockturtle::call_with_stopwatch( time, [&]() {
+        cur_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+      } );
+      std::cout << "[stp_dsd decomposition time]: " << mockturtle::to_seconds( time ) * 1e6 << " us\n";
 
       if ( is_set( "new_entry" ) )
       {
@@ -113,10 +119,14 @@ protected:
     /* 2. stp-based strong dsd (-d)
      *    pre-processing stage
      * ============================================================ */
-    if ( is_set( "stp_dsd" ) )
+    if ( is_set( "stp_dsd" ) )//这里没有return，就会到最下面的代码mig_npn, -d --mm有return
     {
       also::stp_dsd_lut_resynthesis<klut_network> resyn;
-      cur_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+      mockturtle::stopwatch<>::duration time{0};
+      mockturtle::call_with_stopwatch( time, [&]() {
+        cur_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+      } );
+      std::cout << "[stp_dsd decomposition time]: " << mockturtle::to_seconds( time ) * 1e6 << " us\n";
 
       if ( is_set( "new_entry" ) )
       {
@@ -178,7 +188,12 @@ protected:
     if ( is_set( "dec" ) || is_set( "l" ) )
     {
       detail::klut_dec_resynthesis resyn;
-      auto dec_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+      mockturtle::stopwatch<>::duration time{0};
+      auto dec_klut = cur_klut;
+      mockturtle::call_with_stopwatch( time, [&]() {
+        dec_klut = node_resynthesis<klut_network>( cur_klut, resyn );
+      } );
+      std::cout << "[dec decomposition time]: " << mockturtle::to_seconds( time ) * 1e6 << " us\n";
 
       if ( is_set( "new_entry" ) )
       {

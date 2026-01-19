@@ -14,7 +14,7 @@
 // =====================================================
 // Debug switch
 // =====================================================
-inline bool STRONG_DSD_DEBUG_PRINT = true;
+inline bool STRONG_DSD_DEBUG_PRINT = false;
 
 // =====================================================
 // Pretty print: TT + order (must be paired)
@@ -459,9 +459,9 @@ inline int build_strong_dsd_nodes_impl(
     // =========================================================
     if (ENABLE_ELSE_DEC && n >= 3 && n <= 4)
     {
-        std::string indent((size_t)depth * 2, ' ');
-        std::cout << indent
-                  << "⚠️ Strong: force EXACT 2-LUT refine (n=" << n << ")\n";
+        // std::string indent((size_t)depth * 2, ' ');
+        // std::cout << indent
+        //           << "⚠️ Strong: force EXACT 2-LUT refine (n=" << n << ")\n";
 
         int pivot_node = -1;
                 if (!order.empty())
@@ -501,8 +501,8 @@ inline int build_strong_dsd_nodes_impl(
 
     if (!split.found)
     {
-        std::string indent((size_t)depth * 2, ' ');
-        std::cout << indent << "❌ Strong DSD: no valid split\n";
+       // std::string indent((size_t)depth * 2, ' ');
+        //std::cout << indent << "❌ Strong DSD: no valid split\n";
 
         // ===============================
         // 🔥 -e：n>4 做 Shannon 一层，然后回到 strong 主线
@@ -539,24 +539,24 @@ inline int build_strong_dsd_nodes_impl(
     // ---------------------------------------------------------
     const auto& result = split.dsd;
 
-    {
-        std::string indent((size_t)depth * 2, ' ');
-        std::cout << indent << "✅ L = " << result.L << "\n";
-        std::cout << indent << "Mx = " << result.Mx << "\n";
-        std::cout << indent << "My = " << result.My << "\n";
+    // {
+    //     std::string indent((size_t)depth * 2, ' ');
+    //     std::cout << indent << "✅ L = " << result.L << "\n";
+    //     std::cout << indent << "Mx = " << result.Mx << "\n";
+    //     std::cout << indent << "My = " << result.My << "\n";
 
-        std::cout << indent << "My 使用变量（MSB->LSB）：{ ";
-        for (int v : split.my_vars_msb2lsb) std::cout << v << " ";
-        std::cout << "}\n";
+    //     std::cout << indent << "My 使用变量（MSB->LSB）：{ ";
+    //     for (int v : split.my_vars_msb2lsb) std::cout << v << " ";
+    //     std::cout << "}\n";
 
-        std::cout << indent << "Mx 使用变量（MSB->LSB）：{ ";
-        for (int v : split.mx_vars_msb2lsb) std::cout << v << " ";
-        std::cout << "}\n";
-    }
+    //     std::cout << indent << "Mx 使用变量（MSB->LSB）：{ ";
+    //     for (int v : split.mx_vars_msb2lsb) std::cout << v << " ";
+    //     std::cout << "}\n";
+    // }
 
     // ===== recurse on My =====
     const std::vector<int>& order_my = split.my_vars_msb2lsb;
-    print_tt_with_order("递归进入 My", result.My, order_my, depth);
+    //print_tt_with_order("递归进入 My", result.My, order_my, depth);
 
     int my_id = build_strong_dsd_nodes_impl(
         result.My,
@@ -711,12 +711,12 @@ inline void strong_refine_all_non_2input_nodes()
 
     if (targets.empty())
     {
-        std::cout << "✅ Strong DSD: no non-2input nodes to refine\n";
+        //std::cout << "✅ Strong DSD: no non-2input nodes to refine\n";
         return;
     }
 
-    std::cout << "🔧 Strong DSD: refining " << targets.size()
-              << " non-2input nodes\n";
+    // std::cout << "🔧 Strong DSD: refining " << targets.size()
+    //           << " non-2input nodes\n";
 
     for (int node_id : targets)
     {
@@ -737,7 +737,7 @@ inline bool is_need_post_decompose(const DSDNode& nd)
 
 inline void post_decompose_all_large_nodes_fixpoint()
 {
-    std::cout << "🔧 Post-decompose: start fixpoint refinement\n";
+    //std::cout << "🔧 Post-decompose: start fixpoint refinement\n";
 
     bool changed = true;
     int round = 0;
@@ -747,7 +747,7 @@ inline void post_decompose_all_large_nodes_fixpoint()
         changed = false;
         ++round;
 
-        std::cout << "🔁 Post-decompose round " << round << "\n";
+        //std::cout << "🔁 Post-decompose round " << round << "\n";
 
         // ⚠️ 每一轮都重新扫描整个 NODE_LIST
         for (size_t i = 0; i < NODE_LIST.size(); ++i)
@@ -759,17 +759,17 @@ inline void post_decompose_all_large_nodes_fixpoint()
 
             int old_id = nd.id;
 
-            std::cout << "  🔍 Found >2-input node: id=" << old_id
-                      << " fanin=" << nd.child.size()
-                      << " func=" << nd.func << "\n";
+            // std::cout << "  🔍 Found >2-input node: id=" << old_id
+            //           << " fanin=" << nd.child.size()
+            //           << " func=" << nd.func << "\n";
 
             // 👉 你定义的“其他分解操作”
             int new_id = strong_refine_non_2input_node(old_id);
 
             if (new_id != old_id)
             {
-                std::cout << "  ✂️ Refined node " << old_id
-                          << " -> " << new_id << "\n";
+                // std::cout << "  ✂️ Refined node " << old_id
+                //           << " -> " << new_id << "\n";
 
                 strong_replace_node_everywhere(old_id, new_id);
 
@@ -781,7 +781,7 @@ inline void post_decompose_all_large_nodes_fixpoint()
         }
     }
 
-    std::cout << "✅ Post-decompose finished: no >2-input nodes left\n";
+    //std::cout << "✅ Post-decompose finished: no >2-input nodes left\n";
 }
 
 inline int build_strong_dsd_nodes(

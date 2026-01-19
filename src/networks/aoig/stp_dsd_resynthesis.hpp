@@ -84,9 +84,9 @@ public:
                   LeavesIterator begin, LeavesIterator end, Fn&& fn ) const
   {
     std::vector<typename Ntk::signal> children( begin, end );
-    std::cout << "[stp_dsd] klut truth table = ";
-    kitty::print_binary( function, std::cout );
-    std::cout << "\n";
+    //std::cout << "[stp_dsd] klut truth table = ";
+   // kitty::print_binary( function, std::cout );
+    //std::cout << "\n";
     if ( children.size() <= 2u )
     {
       fn( ntk.create_node( children, function ) );
