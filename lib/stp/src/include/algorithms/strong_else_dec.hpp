@@ -39,7 +39,7 @@ inline int strong_else_decompose(
         const std::vector<int>*,
         const std::unordered_map<int, int>*))
 {
-    (void)pivot_node;
+   
 
     const int n = static_cast<int>(order.size());
     if (n == 0)
@@ -125,21 +125,24 @@ inline int strong_else_decompose(
         order_index = 0;
     }
 
-    if (STRONG_DSD_DEBUG_PRINT)
-    {
-        std::string indent(static_cast<size_t>(depth) * 2, ' ');
-        std::cout << indent << "⚙️ strong_else_dec: pick var_id "
-                  << reordered_order.front()
-                  << " (kitty var " << chosen_var
-                  << ", order index " << order_index << ") as pivot (MSB)\n";
-        std::cout << indent << "   order(MSB->LSB) = { ";
-        for (int v : reordered_order)
+
+        if (pivot_node < 0)
         {
-            std::cout << v << " ";
+            std::cout << "⚙️ strong_else_dec: pick var_id "
+                    << reordered_order.front()
+                    << " (kitty var " << chosen_var
+                    << ", order index " << order_index << ") as pivot (MSB)\n";
+
+            std::cout << "   order(MSB->LSB) = { ";
+            for (int v : reordered_order)
+            {
+                std::cout << v << " ";
+            }
+            std::cout << "}\n";
+
+            std::cout << "   reordered tt = " << kitty::to_binary(tt) << "\n";
         }
-        std::cout << "}\n";
-        std::cout << indent << "   reordered tt = " << kitty::to_binary(tt) << "\n";
-    }
+
 
     const auto children = make_children_from_order_with_placeholder(
         reordered_order, placeholder_nodes, local_to_global);
@@ -195,5 +198,5 @@ inline int strong_else_decompose(
     const int neg_node =
         strong_rec(f_neg, neg_order, depth + 1, local_to_global, placeholder_nodes);
 
-    return new_node("11011000", {pivot, neg_node, pos_node});
+    return new_node("10101100", {pivot, neg_node, pos_node,});
 }

@@ -450,37 +450,7 @@ inline int build_strong_dsd_nodes_impl(
 
     const int n = static_cast<int>(order.size());
 
-    // =========================================================
-    // ✅ 关键：-e 开启时，3~4 输入子函数强制用 EXACT 2-LUT refine
-    // 这样永远不会留下 3-input/4-input LUT（比如 0x83）
-    // =========================================================
-    if (ENABLE_ELSE_DEC && n >= 3 && n <= 4)
-    {
-        // std::string indent((size_t)depth * 2, ' ');
-        // std::cout << indent
-        //           << "⚠️ Strong: force EXACT 2-LUT refine (n=" << n << ")\n";
-
-        int pivot_node = -1;
-                if (!order.empty())
-                {
-                    auto children = make_children_from_order_with_placeholder(
-                        order, placeholder_nodes, local_to_global);
-                    if (!children.empty())
-                        pivot_node = children.front();
-                }
-
-       
-        // 并返回由 2-LUT 组成的网络（不会产生 3-input 节点）
-       // strong_else_decompose 在 n<=4 时走 placeholder-aware exact 2-LUT
-        return strong_else_decompose(
-            mf,
-            order,
-            depth,
-            pivot_node,
-            local_to_global,
-            placeholder_nodes,
-            build_strong_dsd_nodes_impl);
-    }
+     
 
     // =========================================================
     // 原来的终止：2 输入及以下直接落地
@@ -727,7 +697,8 @@ inline bool is_need_post_decompose(const DSDNode& nd)
     // 基本节点不处理
     if (nd.func == "in" || nd.func == "0" || nd.func == "1")
         return false;
-
+    if (nd.func == "10101100")
+        return false;
     // 只关心 >2-input
     return nd.child.size() > 2;
 }
@@ -738,11 +709,23 @@ inline void post_decompose_all_large_nodes_fixpoint()
 
     bool changed = true;
     int round = 0;
+    const int max_rounds = std::max<int>(1, static_cast<int>(NODE_LIST.size()) * 2);
 
     while (changed)
     {
         changed = false;
         ++round;
+        
+         if (round > max_rounds)
+        {
+            if (STRONG_DSD_DEBUG_PRINT)
+            {
+                std::cout << "⚠️ Post-decompose: reached max rounds (" << max_rounds
+                          << "), stop fixpoint\n";
+            }
+            break;
+        }
+
 
         //std::cout << "🔁 Post-decompose round " << round << "\n";
 
