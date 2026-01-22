@@ -76,7 +76,7 @@ namespace alice
         add_flag( "--enable_direct_mapping, -e", "enable aig to xmg by direct mapping for comparison" );
         add_flag("--stp_bd, -b","use bi_decomposition to run stp for dsd ") ;
         add_flag("--stp_dsd, -d","use strong dsd with strong_else_dec in stp") ;
-        add_flag( "--aa", "convert klut to xag graph (no resynthesis)" );
+        add_flag( "--aa", "convert klut to aig graph (no resynthesis)" );
         add_flag( "--mm", "convert klut to xmg graph (no resynthesis)" );
         add_flag( "--dec, -l", "dec" );
         add_flag( "--mix", "use mix dsd (mix_else_dec disabled by default)" );
@@ -159,12 +159,12 @@ protected:
      * ============================================================ */
     if ( is_set( "aa" ) )
     {
-      xag_network xag = convert_klut_to_graph<xag_network>( cur_klut );
+      aig_network aig = convert_klut_to_graph<aig_network>( cur_klut );
 
       if ( is_set( "new_entry" ) )
       {
-        store<xag_network>().extend();
-        store<xag_network>().current() = cleanup_dangling( xag );
+        store<aig_network>().extend();
+        store<aig_network>().current() = cleanup_dangling( aig );
       }
       return;
     }
