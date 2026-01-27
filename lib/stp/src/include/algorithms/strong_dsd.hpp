@@ -463,43 +463,37 @@ inline int build_strong_dsd_nodes_impl(
         return new_node(mf, children);
     }
 
-    // ① subset-enum split
-    StrongDsdSplit split = run_strong_dsd_by_mx_subset(mf, order, depth);
+StrongDsdSplit split = run_strong_dsd_by_mx_subset(mf, order, depth);
 
-    if (!split.found)
+if (!split.found)
+{
+    const int n = static_cast<int>(order.size());
+
+    // n>4：DSD 失败才允许 Shannon
+    if (ENABLE_ELSE_DEC && n > 4)
     {
-       // std::string indent((size_t)depth * 2, ' ');
-        //std::cout << indent << "❌ Strong DSD: no valid split\n";
+        int pivot_node =
+            make_children_from_order_with_placeholder(
+                order, placeholder_nodes, local_to_global
+            )[0];
 
-        // ===============================
-        // 🔥 -e：n>4 做 Shannon 一层，然后回到 strong 主线
-        // ===============================
-        if (ENABLE_ELSE_DEC && n > 4)
-        {
-            // pivot = 当前 order 的 MSB 对应的输入节点
-            int pivot_node =
-                make_children_from_order_with_placeholder(
-                    order, placeholder_nodes, local_to_global
-                )[0];
-
-            return strong_else_decompose(
-                mf,
-                order,
-                depth,
-                pivot_node,
-                local_to_global,
-                placeholder_nodes,
-                build_strong_dsd_nodes_impl
-            );
-        }
-
-        // ===============================
-        // ❌ 没开 -e：才退化成叶子 LUT（可能是 3/4 输入）
-        // ===============================
-        auto children = make_children_from_order_with_placeholder(
-            order, placeholder_nodes, local_to_global);
-        return new_node(mf, children);
+        return strong_else_decompose(
+            mf,
+            order,
+            depth,
+            pivot_node,
+            local_to_global,
+            placeholder_nodes,
+            build_strong_dsd_nodes_impl
+        );
     }
+
+    // n<=4 且 DSD 失败：保留 LUT
+    auto children = make_children_from_order_with_placeholder(
+        order, placeholder_nodes, local_to_global);
+    return new_node(mf, children);
+}
+
 
     // ---------------------------------------------------------
     // split found：正常 strong DSD 递归
@@ -622,7 +616,13 @@ inline int strong_refine_non_2input_node(int node_id)
         }
     }
     if (!nd) return node_id;
+
     const int n = static_cast<int>(nd->child.size());
+
+    // ★ 核心改动：≤4-input 一律不做 Shannon
+    if (!ENABLE_ELSE_DEC || n <= 4)
+        return node_id;
+
 
     std::vector<int> order;
     order.reserve(n);
@@ -700,7 +700,8 @@ inline bool is_need_post_decompose(const DSDNode& nd)
     if (nd.func == "10101100")
         return false;
     // 只关心 >2-input
-    return nd.child.size() > 2;
+    return nd.child.size() > 4;
+
 }
 
 inline void post_decompose_all_large_nodes_fixpoint()
